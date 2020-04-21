@@ -3,21 +3,22 @@ using System.Collections.Generic;
 using System.Security;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using codeRR.Server.Api.Core.Applications.Events;
-using codeRR.Server.Api.Core.Invitations.Commands;
-using codeRR.Server.Api.Core.Messaging.Commands;
-using codeRR.Server.App.Core.Applications;
-using codeRR.Server.App.Core.Invitations;
-using codeRR.Server.App.Core.Invitations.CommandHandlers;
-using codeRR.Server.App.Core.Users;
-using codeRR.Server.Infrastructure.Configuration;
-using codeRR.Server.Infrastructure.Security;
+using Coderr.Server.Abstractions.Security;
+using Coderr.Server.Api.Core.Applications.Events;
+using Coderr.Server.Api.Core.Invitations.Commands;
+using Coderr.Server.Api.Core.Messaging.Commands;
+using Coderr.Server.App.Core.Invitations;
+using Coderr.Server.App.Core.Invitations.CommandHandlers;
+using Coderr.Server.Domain.Core.Applications;
+using Coderr.Server.Domain.Core.User;
+using Coderr.Server.Infrastructure.Configuration;
+using Coderr.Server.Infrastructure.Security;
 using DotNetCqs;
 using FluentAssertions;
 using NSubstitute;
 using Xunit;
 
-namespace codeRR.Server.App.Tests.Core.Applications.Commands
+namespace Coderr.Server.App.Tests.Core.Applications.Commands
 {
     public class InviteUserHandlerTests
     {
@@ -25,8 +26,8 @@ namespace codeRR.Server.App.Tests.Core.Applications.Commands
         private readonly IInvitationRepository _invitationRepository;
         private readonly InviteUserHandler _sut;
         private readonly IUserRepository _userRepository;
-        private IMessageContext _context;
-        private TestStore _configStore;
+        private readonly IMessageContext _context;
+        private readonly TestStore _configStore;
 
         public InviteUserHandlerTests()
         {
@@ -37,7 +38,7 @@ namespace codeRR.Server.App.Tests.Core.Applications.Commands
             _applicationRepository.GetByIdAsync(1).Returns(new Application(1, "MyApp"));
             _context = Substitute.For<IMessageContext>();
             _configStore = new TestStore();
-            _sut = new InviteUserHandler(_invitationRepository, _userRepository, _applicationRepository, _configStore);
+            _sut = new InviteUserHandler(_invitationRepository, _userRepository, _applicationRepository, new ConfigWrapper<BaseConfiguration>(_configStore));
         }
 
         [Fact]
@@ -150,7 +151,7 @@ namespace codeRR.Server.App.Tests.Core.Applications.Commands
         {
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.Role, CoderrClaims.RoleSysAdmin),
+                new Claim(ClaimTypes.Role, CoderrRoles.SysAdmin),
                 new Claim(CoderrClaims.ApplicationAdmin, "1")
             };
             var identity = new ClaimsIdentity(claims);

@@ -1,12 +1,17 @@
 Coderr Community Server
 =============================
 
-[![Build status](https://1tcompany.visualstudio.com/_apis/public/build/definitions/75570083-b1ef-4e78-88e2-5db4982f756c/6/badge)]() [![Github All Releases](https://img.shields.io/github/downloads/coderrapp/coderr.server/total.svg?style=flat-square)]()
+[![Build status](https://1tcompany.visualstudio.com/_apis/public/build/definitions/75570083-b1ef-4e78-88e2-5db4982f756c/6/badge)]() [![Github All Releases](https://img.shields.io/github/downloads/coderrio/coderr.server/total.svg?style=flat-square)]()
 
-# Skip logfiles - Use automated exception handling!
+# Discover more errors and solve them faster!
 
-![OSS screenshot of v2.0](docs/screenshot.png)*screenshot is from the version 2.0 beta*
+![Welcome screen](docs/dashboard.png)
 
+[Watch our intro video](https://www.youtube.com/watch?v=E6q3EkEIwVk)
+
+## Search function
+
+![Search using your own data](docs/search.png)
 
 .. don't want to host/maintain your own server? Try [Coderr Live](https://coderr.io/live/)
 
@@ -21,11 +26,11 @@ Too often, error detection and management involves relying on reports from users
 
 ## Getting started
 
-Once you have [downloaded and installed the server](https://github.com/coderrapp/Coderr.Server/releases) you need to install and configure one of our nuget packages. You can read more about them [here](https://coderrapp.com/documentation/client/).
+Once you have [downloaded and installed the server](https://github.com/coderrio/Coderr.Server/releases) you need to install and configure one of our nuget packages. You can read more about them [here](https://coderr.io/documentation/client/).
 
-Unhandled exceptions will be picked up by the client libraries. 
+**Unhandled exceptions will automatically be reported by the client libraries.**
 
-To report exceptions yourself:
+To report exceptions manually:
 
 ```csharp
 public void UpdatePost(int uid, ForumPost post)
@@ -36,14 +41,14 @@ public void UpdatePost(int uid, ForumPost post)
 	}
 	catch (Exception ex)
 	{
-		OneTrue.Report(ex, new{ UserId = uid, ForumPost = post });
+		Err.Report(ex, new{ UserId = uid, ForumPost = post });
 	}
 }
 ```
 
 The context information will in this case be attached as:
 
-![](https://coderrapp.com/images/features/custom-context.png)
+![](https://coderr.io/images/features/custom-context.png)
 
 You can learn more about reporting errors [here](https://coderr.io/documentation/).
 
@@ -61,14 +66,14 @@ We are passionate about Open Source, Microsoft .NET and code quality. 1TCompany 
 
 ## Community
 
-* [Discussion board](http://discuss.coderrapp.com)
-* [Report bugs](https://github.com/coderrapp/coderr.server/issues)
-* [Documentation](https://coderrapp.com/documentation)
-* [Commercial support](mailto:support@coderrapp.com?subject=Commercial%20support%20inquiry)
+* [Discussion board](http://discuss.coderr.io)
+* [Report bugs](https://github.com/coderr.io/coderr.server/issues)
+* [Documentation](https://coderr.io/documentation)
+* [Commercial support](mailto:support@coderr.io?subject=Commercial%20support%20inquiry)
 
 ## Licensing
 
 * Community Server: [AGPL](License)
 * Client libraries: [Apache 2.0](https://opensource.org/licenses/apache-2.0)
-* [codeRR Live](https://coderrapp.com/live): Commercial
-* [codeRR OnPremise](https://coderrapp.com/live): Commercial
+* [Coderr Live](https://coderr.io/live): Commercial
+* [Coderr OnPremise](https://coderr.io/features): Commercial

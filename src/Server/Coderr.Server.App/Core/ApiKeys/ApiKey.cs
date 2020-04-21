@@ -1,14 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using codeRR.Server.Infrastructure.Security;
+using Coderr.Server.Abstractions.Security;
+using Coderr.Server.Infrastructure.Security;
 
-namespace codeRR.Server.App.Core.ApiKeys
+namespace Coderr.Server.App.Core.ApiKeys
 {
     /// <summary>
-    ///     A generated API key which can be used to call codeRR´s HTTP api.
+    ///     A generated API key which can be used to call Coderr´s HTTP api.
     /// </summary>
     public class ApiKey
     {
@@ -27,9 +29,15 @@ namespace codeRR.Server.App.Core.ApiKeys
         ///     <para>
         ///         Typically contains <see cref="CoderrClaims.Application" /> to identity which applications the key can access.
         ///     </para>
+        ///     <para>If no applications are specified, then the key have access to all apps</para>
         /// </remarks>
-        public Claim[] Claims { get { return _claims.ToArray(); } private set { _claims = new List<Claim>(value); } }
-
+        public Claim[] Claims
+        {
+            get => _claims.Any()
+                ? _claims.ToArray()
+                : new[] { new Claim(ClaimTypes.Role, CoderrRoles.SysAdmin) };
+            private set => _claims = new List<Claim>(value);
+        }
         /// <summary>
         ///     When this key was generated
         /// </summary>
@@ -65,6 +73,9 @@ namespace codeRR.Server.App.Core.ApiKeys
             if (applicationId <= 0) throw new ArgumentOutOfRangeException("applicationId");
 
             _claims.Add(new Claim(CoderrClaims.Application, applicationId.ToString(), ClaimValueTypes.Integer32));
+
+            // Api clients typically are allowed to manage everything. Let's do that!
+            _claims.Add(new Claim(CoderrClaims.ApplicationAdmin, applicationId.ToString(), ClaimValueTypes.Integer32));
         }
 
         /// <summary>

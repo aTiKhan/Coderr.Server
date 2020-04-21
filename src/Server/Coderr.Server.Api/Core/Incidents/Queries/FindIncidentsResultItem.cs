@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace codeRR.Server.Api.Core.Incidents.Queries
+namespace Coderr.Server.Api.Core.Incidents.Queries
 {
     /// <summary>
     ///     Item for <see cref="FindIncidentsResult" />.
@@ -30,7 +30,7 @@ namespace codeRR.Server.Api.Core.Incidents.Queries
         /// <summary>
         ///     Id of the application that this incident belongs to
         /// </summary>
-        public string ApplicationId { get; set; }
+        public int ApplicationId { get; set; }
 
         /// <summary>
         ///     Name of the application that this incident belongs to
@@ -41,6 +41,11 @@ namespace codeRR.Server.Api.Core.Incidents.Queries
         ///     When the first report was received.
         /// </summary>
         public DateTime CreatedAtUtc { get; set; }
+
+        /// <summary>
+        /// When the incident was assigned to someone.
+        /// </summary>
+        public DateTime? AssignedAtUtc { get; set; }
 
         /// <summary>
         ///     Incident id
@@ -54,6 +59,11 @@ namespace codeRR.Server.Api.Core.Incidents.Queries
         public bool IsReOpened { get; set; }
 
         /// <summary>
+        ///     When we received the last report.
+        /// </summary>
+        public DateTime LastReportReceivedAtUtc { get; set; }
+
+        /// <summary>
         ///     When someone updated this incident (assigned/closed etc).
         /// </summary>
         public DateTime LastUpdateAtUtc { get; set; }
@@ -61,16 +71,11 @@ namespace codeRR.Server.Api.Core.Incidents.Queries
         /// <summary>
         ///     Incident name
         /// </summary>
-        public string Name { get; private set; }
+        public string Name { set; get; }
 
         /// <summary>
         ///     Total number of received reports (increased even if the number of stored reports are at the limit)
         /// </summary>
         public int ReportCount { get; set; }
-
-        /// <summary>
-        /// When we recieved the last report.
-        /// </summary>
-        public DateTime LastReportReceivedAtUtc { get; set; }
     }
 }

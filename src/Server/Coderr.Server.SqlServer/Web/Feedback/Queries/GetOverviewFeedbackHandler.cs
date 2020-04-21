@@ -1,23 +1,20 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System.Security.Claims;
 using System.Threading.Tasks;
-using codeRR.Server.Api.Web.Feedback.Queries;
-using codeRR.Server.Infrastructure.Security;
+using Coderr.Server.Abstractions.Security;
+using Coderr.Server.Api.Web.Feedback.Queries;
 using DotNetCqs;
-using Griffin.Container;
 using Griffin.Data;
 using Griffin.Data.Mapper;
 
-namespace codeRR.Server.SqlServer.Web.Feedback.Queries
+namespace Coderr.Server.SqlServer.Web.Feedback.Queries
 {
-    [Component]
-    public class GetOverviewFeedbackHandler :
+    public class GetFeedbackForDashboardPageHandler :
         IQueryHandler<GetFeedbackForDashboardPage, GetFeedbackForDashboardPageResult>
     {
         private readonly IAdoNetUnitOfWork _unitOfWork;
 
-        public GetOverviewFeedbackHandler(IAdoNetUnitOfWork unitOfWork)
+        public GetFeedbackForDashboardPageHandler(IAdoNetUnitOfWork unitOfWork)
         {
             _unitOfWork = unitOfWork;
         }

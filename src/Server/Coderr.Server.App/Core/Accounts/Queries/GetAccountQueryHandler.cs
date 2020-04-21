@@ -1,15 +1,16 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
-using codeRR.Server.Api.Core.Accounts.Queries;
+using Coderr.Server.Api.Core.Accounts.Queries;
+using Coderr.Server.Domain.Core.Account;
 using DotNetCqs;
-using Griffin.Container;
 
-namespace codeRR.Server.App.Core.Accounts.Queries
+
+namespace Coderr.Server.App.Core.Accounts.Queries
 {
     /// <summary>
     ///     Handler for <see cref="GetAccountQueryHandler" />
     /// </summary>
-    [Component]
     public class GetAccountQueryHandler : IQueryHandler<GetAccountById, AccountDTO>
     {
         private readonly IAccountRepository _repository;
@@ -35,7 +36,8 @@ namespace codeRR.Server.App.Core.Accounts.Queries
         {
             if (query == null) throw new ArgumentNullException("query");
 
-            var account = await _repository.GetByIdAsync((int) query.AccountId);
+            var accounts = await _repository.GetByIdAsync(new[] { query.AccountId });
+            var account = accounts?.FirstOrDefault();
             if (account == null)
                 return null;
 

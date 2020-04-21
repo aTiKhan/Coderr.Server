@@ -1,9 +1,10 @@
 ﻿using System.Security.Claims;
 using System.Threading.Tasks;
-using codeRR.Server.Api.Core.Accounts.Events;
-using codeRR.Server.Api.Core.Accounts.Requests;
+using Coderr.Server.Api.Core.Accounts.Events;
+using Coderr.Server.Api.Core.Accounts.Requests;
+using Coderr.Server.Domain.Core.Account;
 
-namespace codeRR.Server.App.Core.Accounts
+namespace Coderr.Server.App.Core.Accounts
 {
     public interface IAccountService
     {
@@ -61,5 +62,11 @@ namespace codeRR.Server.App.Core.Accounts
         ///     Task which will contain the reply once completed.
         /// </returns>
         Task<ClaimsIdentity> Login(string userName, string password);
+
+        /// <summary>
+        /// Create a new account for the given userName
+        /// </summary>
+        /// <param name="userName"></param>
+        Task<Account> CreateAsync(string userName, string email);
     }
 }

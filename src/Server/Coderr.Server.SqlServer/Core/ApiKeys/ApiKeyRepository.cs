@@ -2,19 +2,19 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using codeRR.Server.App.Core.ApiKeys;
-using codeRR.Server.Infrastructure.Security;
-using codeRR.Server.SqlServer.Core.ApiKeys.Mappings;
-using Griffin.Container;
+using Coderr.Server.Abstractions.Boot;
+using Coderr.Server.Abstractions.Security;
+using Coderr.Server.App.Core.ApiKeys;
+using Coderr.Server.SqlServer.Core.ApiKeys.Mappings;
 using Griffin.Data;
 using Griffin.Data.Mapper;
 
-namespace codeRR.Server.SqlServer.Core.ApiKeys
+namespace Coderr.Server.SqlServer.Core.ApiKeys
 {
     /// <summary>
     ///     SQL Server implementation of <see cref="IApiKeyRepository" />.
     /// </summary>
-    [Component]
+    [ContainerService]
     public class ApiKeyRepository : IApiKeyRepository
     {
         private readonly IAdoNetUnitOfWork _uow;
@@ -39,7 +39,7 @@ namespace codeRR.Server.SqlServer.Core.ApiKeys
         public Task DeleteApplicationMappingAsync(int apiKeyId, int applicationId)
         {
             _uow.ExecuteNonQuery("DELETE FROM [ApiKeyApplications] WHERE ApiKeyId = @keyId AND ApplicationId = @appId",
-                new {appId = applicationId, keyId = apiKeyId});
+                new { appId = applicationId, keyId = apiKeyId });
             return Task.FromResult<object>(null);
         }
 
@@ -50,8 +50,8 @@ namespace codeRR.Server.SqlServer.Core.ApiKeys
         /// <returns></returns>
         public Task DeleteAsync(int keyId)
         {
-            _uow.ExecuteNonQuery("DELETE FROM [ApiKeyApplications] WHERE ApiKeyId = @keyId", new {keyId});
-            _uow.ExecuteNonQuery("DELETE FROM [ApiKeys] WHERE Id = @keyId", new {keyId});
+            _uow.ExecuteNonQuery("DELETE FROM [ApiKeyApplications] WHERE ApiKeyId = @keyId", new { keyId });
+            _uow.ExecuteNonQuery("DELETE FROM [ApiKeys] WHERE Id = @keyId", new { keyId });
             return Task.FromResult<object>(null);
         }
 
@@ -82,7 +82,7 @@ namespace codeRR.Server.SqlServer.Core.ApiKeys
                 key.Add(app);
             }
 
-            
+
             return key;
         }
 
@@ -165,12 +165,14 @@ namespace codeRR.Server.SqlServer.Core.ApiKeys
                 await _uow.ToListAsync<int>("SELECT ApplicationId FROM ApiKeyApplications WHERE ApiKeyId=@1",
                     key);
 
-            var apps = key.Claims.Select(x => int.Parse(x.Value));
+            var apps = key.Claims
+                .Select(x => int.Parse(x.Value))
+                .ToList();
             var removed = existingMappings.Except(apps);
             foreach (var applicationId in removed)
             {
                 _uow.Execute("DELETE FROM ApiKeyApplications WHERE ApiKeyId = @1 AND ApplicationId = @2",
-                    new[] {key.Id, applicationId});
+                    new[] { key.Id, applicationId });
             }
 
             var added = apps.Except(existingMappings);

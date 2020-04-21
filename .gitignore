@@ -26,11 +26,15 @@ Thumbs.db
 obj/
 [Rr]elease*/
 _ReSharper*/
-[Tt]est[Rr]esult*
 */packages/*/
 **/.vs/*
 **/packages/*/
 src/Tools/MarkdownToNamespaceDoc/packages/*/
 src/Tools/TsGenerator/.vs/*
 src/Help/*
+**/.vs/*
 src/Server/Coderr.Server.Web.Tests/applicationhost.config
+/src/Server/Coderr.Server.Web/node_modules/*
+/src/Server/Coderr.Server.Web/wwwroot/dist/**
+/src/Server/Coderr.Server.Web/npm-shrinkwrap.json
+/src/Server/node_modules/**

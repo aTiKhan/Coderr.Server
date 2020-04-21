@@ -1,18 +1,14 @@
 ﻿using System;
-using System.Linq;
-using System.Security.Claims;
 using System.Threading.Tasks;
-using codeRR.Server.Api.Core.Applications;
-using codeRR.Server.Api.Core.Applications.Commands;
-using codeRR.Server.Api.Core.Applications.Events;
-using codeRR.Server.App.Core.Users;
-using codeRR.Server.Infrastructure.Security;
+using Coderr.Server.Api.Core.Applications.Commands;
+using Coderr.Server.Api.Core.Applications.Events;
+using Coderr.Server.Domain.Core.Applications;
+using Coderr.Server.Domain.Core.User;
 using DotNetCqs;
-using Griffin.Container;
 
-namespace codeRR.Server.App.Core.Applications.CommandHandlers
+
+namespace Coderr.Server.App.Core.Applications.CommandHandlers
 {
-    [Component]
     internal class CreateApplicationHandler : IMessageHandler<CreateApplication>
     {
         private readonly IApplicationRepository _repository;
@@ -28,20 +24,27 @@ namespace codeRR.Server.App.Core.Applications.CommandHandlers
         {
             var app = new Application(command.UserId, command.Name)
             {
-                AppKey = command.ApplicationKey,
                 ApplicationType =
-                    (TypeOfApplication) Enum.Parse(typeof(TypeOfApplication), command.TypeOfApplication.ToString())
+                    (TypeOfApplication)Enum.Parse(typeof(TypeOfApplication), command.TypeOfApplication.ToString())
             };
-            var creator = await _userRepository.GetUserAsync(command.UserId);
+            if (command.ApplicationKey != null)
+                app.AppKey = command.ApplicationKey;
 
+
+            if (command.NumberOfDevelopers > 0)
+            {
+                app.AddStatsBase(command.NumberOfDevelopers, command.NumberOfErrors);
+            }
+
+            var creator = await _userRepository.GetUserAsync(command.UserId);
             await _repository.CreateAsync(app);
             await _repository.CreateAsync(new ApplicationTeamMember(app.Id, creator.AccountId, creator.UserName)
             {
                 UserName = creator.UserName,
-                Roles = new[] {ApplicationRole.Admin, ApplicationRole.Member},
+                Roles = new[] { ApplicationRole.Admin, ApplicationRole.Member },
             });
 
-            var evt = new ApplicationCreated(app.Id, app.Name, command.UserId, command.ApplicationKey, app.SharedSecret);
+            var evt = new ApplicationCreated(app.Id, app.Name, command.UserId, app.AppKey, app.SharedSecret);
             await context.SendAsync(evt);
         }
     }

@@ -1,7 +1,7 @@
 ﻿using System;
 using DotNetCqs;
 
-namespace codeRR.Server.Api.Core.Applications.Queries
+namespace Coderr.Server.Api.Core.Applications.Queries
 {
     /// <summary>
     ///     Get information for an application either by using the key or application id
@@ -65,7 +65,8 @@ namespace codeRR.Server.Api.Core.Applications.Queries
             get { return _applicationId; }
             set
             {
-                if (value <= 0)
+                // Will be 0 when appKey is specified.
+                if (value < 0)
                     throw new ArgumentOutOfRangeException("value", value, "Not a valid id.");
                 _applicationId = value;
             }

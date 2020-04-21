@@ -4,25 +4,26 @@ using System.Linq;
 using System.Security.Authentication;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using codeRR.Server.Api.Core.Accounts.Events;
-using codeRR.Server.Api.Core.Accounts.Requests;
-using codeRR.Server.Api.Core.Applications;
-using codeRR.Server.Api.Core.Applications.Queries;
-using codeRR.Server.App.Core.Applications;
-using codeRR.Server.App.Core.Invitations;
-using codeRR.Server.Infrastructure.Security;
+using Coderr.Server.Abstractions.Boot;
+using Coderr.Server.Abstractions.Security;
+using Coderr.Server.Api.Core.Accounts.Events;
+using Coderr.Server.Api.Core.Accounts.Requests;
+using Coderr.Server.App.Core.Invitations;
+using Coderr.Server.Domain.Core.Account;
+using Coderr.Server.Domain.Core.Applications;
+using Coderr.Server.Domain.Core.User;
+using Coderr.Server.Infrastructure.Security;
+
 using DotNetCqs;
-using Griffin.ApplicationServices;
-using Griffin.Container;
 using log4net;
 
-namespace codeRR.Server.App.Core.Accounts
+namespace Coderr.Server.App.Core.Accounts
 {
     /// <summary>
     ///     This is a service and not CQS object as the methods here are of RPC type which isn't really a good fit for commands
     ///     or queries.
     /// </summary>
-    [Component]
+    [ContainerService]
     public class AccountService : IAccountService
     {
         private readonly ILog _logger = LogManager.GetLogger(typeof(AccountService));
@@ -85,9 +86,10 @@ namespace codeRR.Server.App.Core.Accounts
                 throw new ArgumentOutOfRangeException("ActivationKey", activationKey,
                     "Key was not found.");
 
+
             account.Activate();
             await _repository.UpdateAsync(account);
-
+            
             
             if (!user.IsCurrentAccount(account.Id))
             {
@@ -160,11 +162,23 @@ namespace codeRR.Server.App.Core.Accounts
             return identity;
         }
 
+        public async Task<Account> CreateAsync(string userName, string email)
+        {
+            var password = Guid.NewGuid().ToString("N").Substring(0, 10);
+            var account = new Account(userName, password);
+            account.Activate();
+            account.SetVerifiedEmail(email);
+            await _repository.CreateAsync(account);
+            await _messageBus.SendAsync(new AccountRegistered(account.Id, userName));
+            return account;
+        }
 
         /// <summary>
         ///     Accepts and deletes the invitation. Sends an event which is picked up by the application domain (which transforms
         ///     the pending invite to a membership)
         /// </summary>
+        /// <param name="messagingPrincipal">Principal that outbound messages should be sent with</param>
+        /// <param name="request">accept invitation DTO</param>
         /// <remarks>
         ///     <para>
         ///         Do note that an invitation can be accepted by using another email address than the one that the invitation was
@@ -173,7 +187,7 @@ namespace codeRR.Server.App.Core.Accounts
         ///         invitation.
         ///     </para>
         /// </remarks>
-        public async Task<ClaimsIdentity> AcceptInvitation(ClaimsPrincipal user, AcceptInvitation request)
+        public async Task<ClaimsIdentity> AcceptInvitation(ClaimsPrincipal messagingPrincipal, AcceptInvitation request)
         {
             var invitation = await _invitationRepository.GetByInvitationKeyAsync(request.InvitationKey);
             if (invitation == null)
@@ -206,8 +220,8 @@ namespace codeRR.Server.App.Core.Accounts
             // Account have not been created before the invitation was accepted.
             if (request.AccountId == 0)
             {
-                await _messageBus.SendAsync(user, new AccountRegistered(account.Id, account.UserName));
-                await _messageBus.SendAsync(user, new AccountActivated(account.Id, account.UserName)
+                await _messageBus.SendAsync(messagingPrincipal, new AccountRegistered(account.Id, account.UserName));
+                await _messageBus.SendAsync(messagingPrincipal, new AccountActivated(account.Id, account.UserName)
                 {
                     EmailAddress = account.Email
                 });
@@ -219,7 +233,7 @@ namespace codeRR.Server.App.Core.Accounts
                 AcceptedEmailAddress = request.AcceptedEmail,
                 ApplicationIds = invitation.Invitations.Select(x => x.ApplicationId).ToArray()
             };
-            await _messageBus.SendAsync(user, e);
+            await _messageBus.SendAsync(messagingPrincipal, e);
 
             return identity;
         }
@@ -236,7 +250,6 @@ namespace codeRR.Server.App.Core.Accounts
             foreach (var app in apps)
             {
                 claims.Add(new Claim(CoderrClaims.Application, app.ApplicationId.ToString(), ClaimValueTypes.Integer32));
-                claims.Add(new Claim(CoderrClaims.ApplicationName, app.ApplicationName, ClaimValueTypes.String));
                 if (app.IsAdmin)
                     claims.Add(new Claim(CoderrClaims.ApplicationAdmin, app.ApplicationId.ToString(), ClaimValueTypes.Integer32));
             }
@@ -244,9 +257,9 @@ namespace codeRR.Server.App.Core.Accounts
 
             //accountId == 1 for backwards compatibility (with version 1.0)
             if (isSysAdmin || accountId == 1)
-                claims.Add(new Claim(ClaimTypes.Role, CoderrClaims.RoleSysAdmin));
+                claims.Add(new Claim(ClaimTypes.Role, CoderrRoles.SysAdmin));
 
-            return new ClaimsIdentity(claims.ToArray());
+            return new ClaimsIdentity(claims.ToArray(), AuthenticationTypes.Default);
         }
     }
 }

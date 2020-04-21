@@ -1,20 +1,19 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using codeRR.Server.Api.Core.Incidents.Commands;
-using codeRR.Server.Api.Core.Messaging;
-using codeRR.Server.Api.Core.Messaging.Commands;
-using codeRR.Server.App.Core.Feedback;
+using Coderr.Server.Api.Core.Incidents.Commands;
+using Coderr.Server.Api.Core.Incidents.Events;
+using Coderr.Server.Api.Core.Messaging;
+using Coderr.Server.Api.Core.Messaging.Commands;
+using Coderr.Server.Domain.Core.Feedback;
+using Coderr.Server.Domain.Core.Incidents;
 using DotNetCqs;
-using Griffin.Container;
 
-namespace codeRR.Server.App.Core.Incidents.Commands
+namespace Coderr.Server.App.Core.Incidents.Commands
 {
     /// <summary>
     ///     Handler of <see cref="CloseIncident" />.
     /// </summary>
-    [Component]
     public class CloseIncidentHandler : IMessageHandler<CloseIncident>
     {
         private readonly IFeedbackRepository _feedbackRepository;
@@ -43,7 +42,7 @@ namespace codeRR.Server.App.Core.Incidents.Commands
             if (command == null) throw new ArgumentNullException("command");
 
             var incident = await _repository.GetAsync(command.IncidentId);
-            incident.Close(command.UserId, command.Solution);
+            incident.Close(command.UserId, command.Solution, command.ApplicationVersion);
             if (command.ShareSolution)
                 incident.ShareSolution();
 
@@ -51,7 +50,7 @@ namespace codeRR.Server.App.Core.Incidents.Commands
                 !string.IsNullOrEmpty(command.NotificationText))
             {
                 var emails = await _feedbackRepository.GetEmailAddressesAsync(command.IncidentId);
-                if (emails.Any())
+                if (emails.Distinct().Any())
                 {
                     var emailMessage = new EmailMessage(emails)
                     {
@@ -64,6 +63,10 @@ namespace codeRR.Server.App.Core.Incidents.Commands
             }
 
             await _repository.UpdateAsync(incident);
+
+            var closedEvt =
+                new IncidentClosed(incident.Id, command.UserId, command.Solution, command.ApplicationVersion, command.ClosedAtUtc ?? DateTime.UtcNow);
+            await context.SendAsync(closedEvt);
         }
     }
 }

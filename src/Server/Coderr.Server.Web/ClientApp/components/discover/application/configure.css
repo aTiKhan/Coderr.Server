@@ -1,0 +1,13 @@
+.buttons {
+    padding-top: 1px;
+}
+
+    .buttons button {
+        margin-top: 1px;
+        display: block;
+        width: 100%
+    }
+
+.configure-view btn.active {
+    color: #59c1d5;
+}

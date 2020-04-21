@@ -1,11 +1,11 @@
 ﻿using System.Globalization;
 using System.Threading;
-using codeRR.Server.App.Tests.Configuration.TestEntitites;
-using codeRR.Server.Infrastructure.Configuration;
+using Coderr.Server.Abstractions.Config;
+using Coderr.Server.App.Tests.Configuration.TestEntitites;
 using FluentAssertions;
 using Xunit;
 
-namespace codeRR.Server.App.Tests.Configuration
+namespace Coderr.Server.App.Tests.Configuration
 {
     public class ConfigurationCategoryExtensionsTests
     {

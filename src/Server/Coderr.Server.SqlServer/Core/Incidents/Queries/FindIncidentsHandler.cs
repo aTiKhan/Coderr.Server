@@ -1,28 +1,41 @@
 ﻿using System;
 using System.Data.Common;
-using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
-using codeRR.Server.Api.Core.Incidents;
-using codeRR.Server.Api.Core.Incidents.Queries;
-using codeRR.Server.App.Core.Incidents;
-using codeRR.Server.App.Modules.Messaging.Templating.Formatting;
-using codeRR.Server.Infrastructure.Security;
+using Coderr.Server.Abstractions.Security;
+using Coderr.Server.Api.Core.Incidents;
+using Coderr.Server.Api.Core.Incidents.Queries;
+using Coderr.Server.Domain.Core.Incidents;
+using Coderr.Server.Infrastructure.Security;
 using DotNetCqs;
-using Griffin.Container;
+using Coderr.Server.ReportAnalyzer.Abstractions;
 using Griffin.Data;
 using Griffin.Data.Mapper;
 
-namespace codeRR.Server.SqlServer.Core.Incidents.Queries
+namespace Coderr.Server.SqlServer.Core.Incidents.Queries
 {
-    [Component]
     public class FindIncidentsHandler : IQueryHandler<FindIncidents, FindIncidentsResult>
     {
         private readonly IAdoNetUnitOfWork _uow;
+        private string _where = "";
+        private string _joins = "";
 
         public FindIncidentsHandler(IAdoNetUnitOfWork uow)
         {
             _uow = uow;
+        }
+
+        private void AppendWhere(string constraint)
+        {
+            if (_where == "")
+                _where = " WHERE " + constraint + "\r\n";
+            else
+                _where += " AND " + constraint + "\r\n";
+        }
+
+        private void AppendJoin(string clause)
+        {
+            _joins += clause + "\r\n";
         }
 
         public async Task<FindIncidentsResult> HandleAsync(IMessageContext context, FindIncidents query)
@@ -33,17 +46,15 @@ namespace codeRR.Server.SqlServer.Core.Incidents.Queries
                                     FROM Incidents 
                                     JOIN Applications ON (Applications.Id = Incidents.ApplicationId)";
 
-                var startWord = " WHERE ";
                 if (!string.IsNullOrEmpty(query.Version))
                 {
                     var versionId =
                         _uow.ExecuteScalar("SELECT Id FROM ApplicationVersions WHERE Version = @version",
                             new { version = query.Version });
 
-                    sqlQuery += " JOIN IncidentVersions ON (Incidents.Id = IncidentVersions.IncidentId)" +
-                                " WHERE IncidentVersions.VersionId = @versionId";
+                    AppendJoin("JOIN IncidentVersions ON (Incidents.Id = IncidentVersions.IncidentId)");
+                    AppendWhere("IncidentVersions.VersionId = @versionId");
                     cmd.AddParameter("versionId", versionId);
-                    startWord = " AND ";
                 }
                 if (query.Tags != null && query.Tags.Length > 0)
                 {
@@ -54,8 +65,7 @@ namespace codeRR.Server.SqlServer.Core.Incidents.Queries
                                     AND IncidentTags.IncidentId=Incidents.Id
                                     GROUP BY IncidentId 
                                     HAVING Count(IncidentTags.Id) = {1}
-                                    ))
-";
+                                    ))";
                     var ps = "";
                     for (int i = 0; i < query.Tags.Length; i++)
                     {
@@ -63,7 +73,14 @@ namespace codeRR.Server.SqlServer.Core.Incidents.Queries
                         cmd.AddParameter($"@tag{i}", query.Tags[i]);
                     }
 
-                    sqlQuery += string.Format(ourSql, ps.Remove(ps.Length - 2, 2), query.Tags.Length);
+                    var sql = string.Format(ourSql, ps.Remove(ps.Length - 2, 2), query.Tags.Length);
+                    AppendJoin(sql);
+                }
+
+                if (query.EnvironmentIds != null && query.EnvironmentIds.Length > 0)
+                {
+                    AppendJoin("JOIN IncidentEnvironments ON (Incidents.Id = IncidentEnvironments.IncidentId)");
+                    AppendWhere($"IncidentEnvironments.EnvironmentId IN ({string.Join(", ", query.EnvironmentIds)})");
                 }
 
                 if (!string.IsNullOrEmpty(query.ContextCollectionPropertyValue)
@@ -74,7 +91,7 @@ namespace codeRR.Server.SqlServer.Core.Incidents.Queries
                     where += AddContextProperty(cmd, where, "PropertyName", "ContextPropertyName", query.ContextCollectionPropertyName);
                     where += AddContextProperty(cmd, where, "Value", "ContextPropertyValue", query.ContextCollectionPropertyValue);
                     if (where.EndsWith(" AND "))
-                        where = where.Remove(where.Length - 5, 5);
+                        where = where.Substring(0, where.Length - 5);
                     var ourSql =
                         $@"with ContextSearch (IncidentId) 
                         as (
@@ -84,7 +101,8 @@ namespace codeRR.Server.SqlServer.Core.Incidents.Queries
                             WHERE {where}
                         )
 ";
-                    sqlQuery = ourSql + sqlQuery + " join ContextSearch ON (Incidents.Id = ContextSearch.IncidentId)\r\n";
+                    sqlQuery = ourSql + sqlQuery;
+                    AppendJoin("join ContextSearch ON (Incidents.Id = ContextSearch.IncidentId)");
                 }
 
                 if (query.ApplicationIds != null && query.ApplicationIds.Length > 0)
@@ -99,7 +117,7 @@ namespace codeRR.Server.SqlServer.Core.Incidents.Queries
                     }
 
                     var ids = string.Join(",", query.ApplicationIds);
-                    sqlQuery += $" {startWord} Applications.Id IN ({ids})";
+                    AppendWhere($"Applications.Id IN ({ids})");
                 }
                 else if (!context.Principal.IsSysAdmin())
                 {
@@ -107,69 +125,83 @@ namespace codeRR.Server.SqlServer.Core.Incidents.Queries
                         .Where(x => x.Type == CoderrClaims.Application)
                         .Select(x => x.Value)
                         .ToArray();
-                    sqlQuery += $" {startWord} Applications.Id IN({string.Join(",", appIds)})";
+                    if (!appIds.Any())
+                    {
+                        return new FindIncidentsResult { Items = new FindIncidentsResultItem[0] };
+                    }
+
+                    AppendWhere($"Applications.Id IN({string.Join(",", appIds)})");
                 }
 
                 if (!string.IsNullOrWhiteSpace(query.FreeText))
                 {
-                    sqlQuery += @" AND (
+                    AppendWhere(@"(
                                     Incidents.Id IN 
                                     (
                                         SELECT Distinct IncidentId 
                                         FROM ErrorReports 
                                         WHERE StackTrace LIKE @FreeText 
                                             OR ErrorReports.Title LIKE @FreeText
+                                            OR ErrorReports.ErrorId LIKE @FreeText
                                             OR Incidents.Description LIKE @FreeText)
-                                    )";
+                                    )");
                     cmd.AddParameter("FreeText", $"%{query.FreeText}%");
                 }
 
 
 
-                sqlQuery += " AND (";
+                _where += " AND (";
                 if (query.IsIgnored)
-                    sqlQuery += $"State = {(int)IncidentState.Ignored} OR ";
+                    _where += $"State = {(int)IncidentState.Ignored} OR ";
                 if (query.IsNew)
-                    sqlQuery += $"State = {(int)IncidentState.New} OR ";
+                    _where += $"State = {(int)IncidentState.New} OR ";
                 if (query.IsClosed)
-                    sqlQuery += $"State = {(int)IncidentState.Closed} OR ";
+                    _where += $"State = {(int)IncidentState.Closed} OR ";
                 if (query.IsAssigned)
-                    sqlQuery += $"State = {(int)IncidentState.Active} OR ";
+                    _where += $"State = {(int)IncidentState.Active} OR ";
                 if (query.ReOpened)
-                    sqlQuery += "IsReOpened = 1 OR ";
+                    _where += "IsReOpened = 1 OR ";
 
 
-                if (sqlQuery.EndsWith("OR "))
-                    sqlQuery = sqlQuery.Remove(sqlQuery.Length - 4) + ") ";
+                if (_where.EndsWith("OR "))
+                    _where = _where.Remove(_where.Length - 4) + ") ";
                 else
-                    sqlQuery = sqlQuery.Remove(sqlQuery.Length - 5);
+                    _where = _where.Remove(_where.Length - 5);
 
                 if (query.MinDate > DateTime.MinValue)
                 {
-                    sqlQuery += " AND Incidents.LastReportAtUtc >= @minDate";
+                    AppendWhere("Incidents.LastReportAtUtc >= @minDate");
                     cmd.AddParameter("minDate", query.MinDate);
                 }
                 if (query.MaxDate < DateTime.MaxValue)
                 {
-                    sqlQuery += " AND Incidents.LastReportAtUtc <= @maxDate";
+                    AppendWhere("Incidents.LastReportAtUtc <= @maxDate");
                     cmd.AddParameter("maxDate", query.MaxDate);
                 }
 
                 if (query.AssignedToId > 0)
                 {
-                    sqlQuery += "AND AssignedToId = @assignedTo";
+                    AppendWhere("AssignedToId = @assignedTo");
                     cmd.AddParameter("assignedTo", query.AssignedToId);
                 }
 
 
 
                 //count first;
+                sqlQuery += _joins + _where;
                 cmd.CommandText = string.Format(sqlQuery, "count(Incidents.Id)");
                 var count = await cmd.ExecuteScalarAsync();
 
 
                 // then items
                 if (query.SortType == IncidentOrder.Newest)
+                {
+                    if (query.SortAscending)
+                        sqlQuery += " ORDER BY CreatedAtUtc";
+                    else
+                        sqlQuery += " ORDER BY CreatedAtUtc DESC";
+                }
+                else if (query.SortType == IncidentOrder.LatestReport)
                 {
                     if (query.SortAscending)
                         sqlQuery += " ORDER BY LastReportAtUtc";

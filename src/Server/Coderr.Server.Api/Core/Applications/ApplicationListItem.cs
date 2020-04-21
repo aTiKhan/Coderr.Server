@@ -1,7 +1,7 @@
 ﻿using System;
-using codeRR.Server.Api.Core.Applications.Queries;
+using Coderr.Server.Api.Core.Applications.Queries;
 
-namespace codeRR.Server.Api.Core.Applications
+namespace Coderr.Server.Api.Core.Applications
 {
     /// <summary>
     ///     Result item for <see cref="GetApplicationList" />
@@ -15,11 +15,10 @@ namespace codeRR.Server.Api.Core.Applications
         /// <param name="name">name of the application</param>
         public ApplicationListItem(int id, string name)
         {
-            if (name == null) throw new ArgumentNullException("name");
             if (id <= 0) throw new ArgumentOutOfRangeException("id");
 
             Id = id;
-            Name = name;
+            Name = name ?? throw new ArgumentNullException("name");
         }
 
         /// <summary>
@@ -30,9 +29,24 @@ namespace codeRR.Server.Api.Core.Applications
         }
 
         /// <summary>
+        ///     Group that this application belongs to.
+        /// </summary>
+        public int GroupId { get; set; }
+
+        /// <summary>
+        ///     Name of the group
+        /// </summary>
+        public string GroupName { get; set; }
+
+        /// <summary>
         ///     Id of the application (primary key)
         /// </summary>
         public int Id { get; set; }
+
+        /// <summary>
+        ///     User that requested this list is the admin of the specified application.
+        /// </summary>
+        public bool IsAdmin { get; set; }
 
         /// <summary>
         ///     Application name as entered by the user.
@@ -40,8 +54,11 @@ namespace codeRR.Server.Api.Core.Applications
         public string Name { get; set; }
 
         /// <summary>
-        /// User that requested this list is the admin of the specified application.
+        ///     Number of full time developers.
         /// </summary>
-        public bool IsAdmin { get; set; }
+        /// <value>
+        ///     null = not specified
+        /// </value>
+        public decimal? NumberOfDevelopers { get; set; }
     }
 }

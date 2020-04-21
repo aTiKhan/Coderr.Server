@@ -1,20 +1,21 @@
 ﻿using System.Linq;
 using System.Security;
 using System.Threading.Tasks;
-using codeRR.Server.Api.Core.Applications.Events;
-using codeRR.Server.Api.Core.Invitations.Commands;
-using codeRR.Server.Api.Core.Messaging;
-using codeRR.Server.Api.Core.Messaging.Commands;
-using codeRR.Server.App.Configuration;
-using codeRR.Server.App.Core.Applications;
-using codeRR.Server.App.Core.Users;
-using codeRR.Server.Infrastructure.Security;
-using Coderr.Server.PluginApi.Config;
+using Coderr.Server.Abstractions.Config;
+using Coderr.Server.Abstractions.Security;
+using Coderr.Server.Api.Core.Applications.Events;
+using Coderr.Server.Api.Core.Invitations.Commands;
+using Coderr.Server.Api.Core.Messaging;
+using Coderr.Server.Api.Core.Messaging.Commands;
+using Coderr.Server.Domain.Core.Applications;
+using Coderr.Server.Domain.Core.User;
+using Coderr.Server.Infrastructure.Configuration;
+using Coderr.Server.Infrastructure.Security;
 using DotNetCqs;
-using Griffin.Container;
+
 using log4net;
 
-namespace codeRR.Server.App.Core.Invitations.CommandHandlers
+namespace Coderr.Server.App.Core.Invitations.CommandHandlers
 {
     /// <summary>
     ///     Handler for <see cref="InviteUser" />
@@ -24,14 +25,13 @@ namespace codeRR.Server.App.Core.Invitations.CommandHandlers
     /// 
     ///     </para>
     /// </remarks>
-    [Component]
     public class InviteUserHandler : IMessageHandler<InviteUser>
     {
         private readonly IApplicationRepository _applicationRepository;
         private readonly IInvitationRepository _invitationRepository;
         private readonly IUserRepository _userRepository;
         private readonly ILog _logger = LogManager.GetLogger(typeof(InviteUserHandler));
-        private ConfigurationStore _configStore;
+        private BaseConfiguration _baseConfiguration;
 
         /// <summary>
         ///     Creates a new instance of <see cref="InviteUserHandler" />.
@@ -40,12 +40,12 @@ namespace codeRR.Server.App.Core.Invitations.CommandHandlers
         /// <param name="userRepository">To load inviter and invitee</param>
         /// <param name="applicationRepository">Add pending member</param>
         public InviteUserHandler(IInvitationRepository invitationRepository,
-            IUserRepository userRepository, IApplicationRepository applicationRepository, ConfigurationStore configStore)
+            IUserRepository userRepository, IApplicationRepository applicationRepository, IConfiguration<BaseConfiguration> baseConfig)
         {
             _invitationRepository = invitationRepository;
             _userRepository = userRepository;
             _applicationRepository = applicationRepository;
-            _configStore = configStore;
+            _baseConfiguration = baseConfig.Value;
         }
 
         /// <inheritdoc />
@@ -72,7 +72,7 @@ namespace codeRR.Server.App.Core.Invitations.CommandHandlers
 
                 var member = new ApplicationTeamMember(command.ApplicationId, invitedUser.AccountId, inviter.UserName)
                 {
-                    Roles = new[] {ApplicationRole.Member}
+                    Roles = new[] { ApplicationRole.Member }
                 };
 
                 await _applicationRepository.CreateAsync(member);
@@ -93,7 +93,7 @@ namespace codeRR.Server.App.Core.Invitations.CommandHandlers
             var invitedMember = new ApplicationTeamMember(command.ApplicationId, command.EmailAddress)
             {
                 AddedByName = inviter.UserName,
-                Roles = new[] {ApplicationRole.Member}
+                Roles = new[] { ApplicationRole.Member }
             };
             await _applicationRepository.CreateAsync(invitedMember);
             var invitation = await _invitationRepository.FindByEmailAsync(command.EmailAddress);
@@ -126,8 +126,7 @@ namespace codeRR.Server.App.Core.Invitations.CommandHandlers
         /// <returns>task</returns>
         protected virtual async Task SendInvitationEmailAsync(IMessageContext context, Invitation invitation, string reason)
         {
-            var config = _configStore.Load<BaseConfiguration>();
-            var url = config.BaseUrl.ToString().TrimEnd('/');
+            var url = _baseConfiguration.BaseUrl.ToString().TrimEnd('/');
             if (string.IsNullOrEmpty(reason))
                 reason = "";
             else
@@ -135,19 +134,20 @@ namespace codeRR.Server.App.Core.Invitations.CommandHandlers
 
             var msg = new EmailMessage
             {
-                Subject = "You have been invited by " + invitation.InvitedBy + " to codeRR.",
-                TextBody = string.Format(@"Hello,
+                Subject = "You have been invited by " + invitation.InvitedBy + " to Coderr.",
+                TextBody = $@"Hello,
 
-{0} has invited to you join their team at codeRR, a service used to keep track of exceptions in .NET applications.
+{invitation.InvitedBy} has invited to you join their team at Coderr, a service used to keep track of exceptions in .NET applications.
 
 Click on the following link to accept the invitation:
-{2}/account/accept/{1}
+{url}/invitation/accept/{invitation.InvitationKey}
 
-{3}
+{reason}
+
 Best regards,
-  The codeRR team
-", invitation.InvitedBy, invitation.InvitationKey, url, reason),
-                Recipients = new[] {new EmailAddress(invitation.EmailToInvitedUser)}
+  The Coderr team
+",
+                Recipients = new[] { new EmailAddress(invitation.EmailToInvitedUser) }
             };
 
             await context.SendAsync(new SendEmail(msg));

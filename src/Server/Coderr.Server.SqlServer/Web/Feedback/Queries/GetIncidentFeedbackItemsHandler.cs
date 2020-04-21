@@ -2,17 +2,19 @@
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Threading.Tasks;
-using codeRR.Server.Api.Web.Feedback.Queries;
+using Coderr.Server.Api.Web.Feedback.Queries;
 using DotNetCqs;
-using Griffin.Container;
+using Coderr.Server.ReportAnalyzer.Abstractions;
 using Griffin.Data;
+using log4net;
 
-namespace codeRR.Server.SqlServer.Web.Feedback.Queries
+namespace Coderr.Server.SqlServer.Web.Feedback.Queries
 {
-    [Component]
     public class GetIncidentFeedbackHandler : IQueryHandler<GetIncidentFeedback, GetIncidentFeedbackResult>
     {
         private readonly IAdoNetUnitOfWork _unitOfWork;
+        private ILog _logger = LogManager.GetLogger(typeof(GetIncidentFeedbackHandler));
+
 
         public GetIncidentFeedbackHandler(IAdoNetUnitOfWork unitOfWork)
         {
@@ -31,6 +33,7 @@ namespace codeRR.Server.SqlServer.Web.Feedback.Queries
                 cmd.AddParameter("id", query.IncidentId);
                 cmd.CommandText += " ORDER BY IncidentFeedback.CreatedAtUtc DESC";
 
+                _logger.Info("** Retreiving");
                 using (var reader = await cmd.ExecuteReaderAsync())
                 {
                     var emails = new List<string>();

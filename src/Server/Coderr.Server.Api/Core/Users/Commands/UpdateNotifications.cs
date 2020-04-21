@@ -1,6 +1,4 @@
-﻿using DotNetCqs;
-
-namespace codeRR.Server.Api.Core.Users.Commands
+﻿namespace Coderr.Server.Api.Core.Users.Commands
 {
     /// <summary>
     ///     Update user notifications
@@ -19,11 +17,6 @@ namespace codeRR.Server.Api.Core.Users.Commands
         public NotificationState NotifyOnNewIncidents { get; set; }
 
         /// <summary>
-        ///     How to notify when a new report is created (receive an exception)
-        /// </summary>
-        public NotificationState NotifyOnNewReport { get; set; }
-
-        /// <summary>
         ///     How to notify user when a peak is detected
         /// </summary>
         public NotificationState NotifyOnPeaks { get; set; }
@@ -38,6 +31,7 @@ namespace codeRR.Server.Api.Core.Users.Commands
         /// </summary>
         public NotificationState NotifyOnUserFeedback { get; set; }
 
+        
         /// <summary>
         ///     User that configured its settings.
         /// </summary>

@@ -3,18 +3,20 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
-using codeRR.Server.App.Core.Accounts;
-using Griffin.Container;
+using Coderr.Server.Abstractions.Boot;
+using Coderr.Server.Domain.Core.Account;
+using Coderr.Server.ReportAnalyzer.Abstractions;
 using Griffin.Data;
 using Griffin.Data.Mapper;
 using log4net;
 
-namespace codeRR.Server.SqlServer.Core.Accounts
+namespace Coderr.Server.SqlServer.Core.Accounts
 {
-    [Component]
+    [ContainerService]
     public class AccountRepository : IAccountRepository
     {
         private readonly IAdoNetUnitOfWork _uow;
+        private ILog _logger = LogManager.GetLogger(typeof(AccountRepository));
 
         public AccountRepository(IAdoNetUnitOfWork uow)
         {
@@ -42,7 +44,12 @@ namespace codeRR.Server.SqlServer.Core.Accounts
             {
                 cmd.CommandText = "SELECT * FROM Accounts WHERE ActivationKey=@key";
                 cmd.AddParameter("key", activationKey);
-                return await cmd.FirstOrDefaultAsync(new AccountMapper());
+                var accounts= await cmd.ToListAsync(new AccountMapper());
+                if (accounts.Count == 0)
+                    return null;
+
+                _logger.Error($"Found {accounts.Count} accounts, expected one.");
+                return accounts.First();
             }
         }
 
@@ -102,7 +109,7 @@ namespace codeRR.Server.SqlServer.Core.Accounts
             {
                 cmd.CommandText = "SELECT * FROM Accounts WHERE Id=@id";
                 cmd.AddParameter("id", id);
-                return await cmd.FirstAsync(new AccountMapper());
+                return await cmd.FirstAsync<Account>();
             }
         }
 
@@ -126,8 +133,8 @@ namespace codeRR.Server.SqlServer.Core.Accounts
 
             using (var cmd = (DbCommand) _uow.CreateCommand())
             {
-                cmd.CommandText = "SELECT * FROM Accounts WHERE Id IN (@ids)";
-                cmd.AddParameter("ids", string.Join(",", ids.Select(x => "'" + x + "'")));
+                var idStr = string.Join(",", ids.Select(x => "'" + x + "'"));
+                cmd.CommandText = $"SELECT * FROM Accounts WHERE Id IN ({idStr})";
                 return await cmd.ToListAsync<Account>();
             }
         }

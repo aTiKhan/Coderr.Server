@@ -2,24 +2,25 @@
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using System.Web;
-using System.Web.Mvc;
-using codeRR.Server.Api.Core.Applications;
-using codeRR.Server.App.Core.Accounts;
-using codeRR.Server.App.Core.Applications;
-using codeRR.Server.App.Core.Users;
-using codeRR.Server.Infrastructure;
-using codeRR.Server.Infrastructure.Security;
-using codeRR.Server.SqlServer.Core.Accounts;
-using codeRR.Server.SqlServer.Core.Applications;
-using codeRR.Server.SqlServer.Core.Users;
-using codeRR.Server.Web.Areas.Installation.Models;
+using Coderr.Server.Abstractions.Security;
+using Coderr.Server.Domain.Core.Account;
+using Coderr.Server.Domain.Core.Applications;
+using Coderr.Server.Domain.Core.User;
+using Coderr.Server.Infrastructure;
+using Coderr.Server.SqlServer.Core.Accounts;
+using Coderr.Server.SqlServer.Core.Applications;
+using Coderr.Server.SqlServer.Core.Users;
+using Coderr.Server.Web.Areas.Installation.Models;
 using Griffin.Data;
-using Microsoft.Owin.Security;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 
-namespace codeRR.Server.Web.Areas.Installation.Controllers
+namespace Coderr.Server.Web.Areas.Installation.Controllers
 {
-    [OutputCache(Duration = 0, NoStore = true)]
+    [Area("Installation")]
+
     public class AccountController : Controller
     {
         public ActionResult Admin()
@@ -44,36 +45,36 @@ namespace codeRR.Server.Web.Areas.Installation.Controllers
                 account.Activate();
                 account.IsSysAdmin = true;
                 var con = SetupTools.DbTools.OpenConnection();
-                var uow = new AdoNetUnitOfWork(con);
-                var repos = new AccountRepository(uow);
-                if (await repos.IsUserNameTakenAsync(model.UserName))
-                    return Redirect(Url.GetNextWizardStep());
-
-                account.SetVerifiedEmail(model.EmailAddress);
-                await repos.CreateAsync(account);
-
-                var user = new User(account.Id, account.UserName)
+                Application app;
+                using (var uow = new AdoNetUnitOfWork(con))
                 {
-                    EmailAddress = account.Email
-                };
-                var userRepos = new UserRepository(uow);
-                await userRepos.CreateAsync(user);
+                    var repos = new AccountRepository(uow);
+                    if (await repos.IsUserNameTakenAsync(model.UserName))
+                        return Redirect(Url.GetNextWizardStep());
 
-                var repos2 = new ApplicationRepository(uow);
-                var app = new Application(user.AccountId, "DemoApp")
-                {
-                    ApplicationType = TypeOfApplication.DesktopApplication
-                };
-                await repos2.CreateAsync(app);
+                    account.SetVerifiedEmail(model.EmailAddress);
+                    await repos.CreateAsync(account);
 
-                var tm = new ApplicationTeamMember(app.Id, account.Id, "System")
-                {
-                    Roles = new[] {ApplicationRole.Admin, ApplicationRole.Member},
-                    UserName = account.UserName
-                };
-                await repos2.CreateAsync(tm);
+                    var user = new User(account.Id, account.UserName) { EmailAddress = account.Email };
+                    var userRepos = new UserRepository(uow);
+                    await userRepos.CreateAsync(user);
 
-                uow.SaveChanges();
+                    var repos2 = new ApplicationRepository(uow);
+                    app = new Application(user.AccountId, "DemoApp")
+                    {
+                        ApplicationType = TypeOfApplication.DesktopApplication
+                    };
+                    await repos2.CreateAsync(app);
+
+                    var tm = new ApplicationTeamMember(app.Id, account.Id, "System")
+                    {
+                        Roles = new[] { ApplicationRole.Admin, ApplicationRole.Member },
+                        UserName = account.UserName
+                    };
+                    await repos2.CreateAsync(tm);
+
+                    uow.SaveChanges();
+                }
 
                 var claims = new List<Claim>
                 {
@@ -82,11 +83,12 @@ namespace codeRR.Server.Web.Areas.Installation.Controllers
                     new Claim(ClaimTypes.Email, account.Email, ClaimValueTypes.String),
                     new Claim(CoderrClaims.Application, app.Id.ToString(), ClaimValueTypes.Integer32),
                     new Claim(CoderrClaims.ApplicationAdmin, app.Id.ToString(), ClaimValueTypes.Integer32),
-                    new Claim(ClaimTypes.Role, CoderrClaims.RoleSysAdmin, ClaimValueTypes.String)
+                    new Claim(ClaimTypes.Role, CoderrRoles.SysAdmin, ClaimValueTypes.String)
                 };
-                var identity = new ClaimsIdentity(claims, "Cookie", ClaimTypes.Name, ClaimTypes.Role);
-                var properties = new AuthenticationProperties {IsPersistent = false};
-                HttpContext.GetOwinContext().Authentication.SignIn(properties, identity);
+                var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+                var properties = new AuthenticationProperties { IsPersistent = false };
+                await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
+                    new ClaimsPrincipal(identity), properties);
 
                 return Redirect(Url.GetNextWizardStep());
             }
@@ -98,34 +100,31 @@ namespace codeRR.Server.Web.Areas.Installation.Controllers
             }
         }
 
-        protected override void OnActionExecuting(ActionExecutingContext filterContext)
-        {
-            ViewBag.PrevLink = Url.GetPreviousWizardStepLink();
-            ViewBag.NextLink = Url.GetNextWizardStepLink();
-            base.OnActionExecuting(filterContext);
-        }
-
         private void SetStateFlag()
         {
             ViewBag.Exception = null;
             ViewBag.AlreadyCreated = false;
-            if (User.Identity.IsAuthenticated)
-                ViewBag.AlreadyCreated = true;
-            else
+            using (var con = SetupTools.DbTools.OpenConnection())
             {
-                using (var con = SetupTools.DbTools.OpenConnection())
+                using (var uow = new AdoNetUnitOfWork(con))
                 {
-                    using (var uow = new AdoNetUnitOfWork(con))
-                    {
-                        var id = uow.ExecuteScalar("SELECT TOP 1 Id FROM Accounts");
-                        if (id != null)
-                            ViewBag.AlreadyCreated = true;
-                    }
+                    var id = uow.ExecuteScalar("SELECT TOP 1 Id FROM Accounts");
+                    if (id != null)
+                        ViewBag.AlreadyCreated = true;
                 }
             }
 
             if (!ViewBag.AlreadyCreated)
                 ViewBag.NextLink = null;
+        }
+
+        public override Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+        {
+            ViewBag.PrevLink = Url.GetPreviousWizardStepLink();
+            ViewBag.NextLink = Url.GetNextWizardStepLink();
+            Response.Headers.Add("Cache-Control", "no-cache, no-store");
+            Response.Headers.Add("Expires", "-1");
+            return base.OnActionExecutionAsync(context, next);
         }
     }
 }

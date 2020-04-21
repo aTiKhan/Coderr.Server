@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Data;
-using codeRR.Server.Api.Core.Incidents.Queries;
+using Coderr.Server.Api.Core.Incidents.Queries;
 using Griffin.Data.Mapper;
 
-namespace codeRR.Server.SqlServer.Core.Incidents.Queries
+namespace Coderr.Server.SqlServer.Core.Incidents.Queries
 {
     public class FindIncidentResultItemMapper : IEntityMapper<FindIncidentsResultItem>
     {
@@ -20,15 +20,20 @@ namespace codeRR.Server.SqlServer.Core.Incidents.Queries
         public void Map(IDataRecord source, FindIncidentsResultItem destination)
         {
             destination.ApplicationName = (string) source["ApplicationName"];
-            destination.ApplicationId = source["ApplicationId"].ToString();
+            destination.ApplicationId = (int)source["ApplicationId"];
             destination.IsReOpened = source["IsReopened"].Equals(1);
             destination.ReportCount = (int) source["ReportCount"];
-            destination.LastUpdateAtUtc = (DateTime) source["UpdatedAtUtc"];
+            destination.CreatedAtUtc = (DateTime)source["CreatedAtUtc"];
 
-            var value = source["LastReportAtUtc"];
+            var value = source["UpdatedAtUtc"];
+            if (!(value is DBNull))
+                destination.LastUpdateAtUtc = (DateTime) value;
+
+            value = source["LastReportAtUtc"];
             destination.LastReportReceivedAtUtc = (DateTime) (value is DBNull ? destination.LastUpdateAtUtc : value);
 
-            destination.CreatedAtUtc = (DateTime) source["CreatedAtUtc"];
+            value = source["AssignedAtUtc"];
+            destination.AssignedAtUtc = (DateTime?)(value is DBNull ? null : value);
         }
     }
 }

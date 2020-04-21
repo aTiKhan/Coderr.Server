@@ -1,8 +1,8 @@
 ﻿using System;
-using DotNetCqs;
+
 // ReSharper disable AutoPropertyCanBeMadeGetOnly.Local
 
-namespace codeRR.Server.Api.Core.Accounts.Commands
+namespace Coderr.Server.Api.Core.Accounts.Commands
 {
     /// <summary>
     ///     Register a new account and send out an activation email.
@@ -67,6 +67,15 @@ namespace codeRR.Server.Api.Core.Accounts.Commands
             if (accountId <= 0) throw new ArgumentOutOfRangeException("accountId");
             ActivateDirectly = true;
             AccountId = accountId;
+        }
+
+        /// <summary>
+        ///     Activate this account directly
+        /// </summary>
+        public void Activate()
+        {
+            ActivateDirectly = true;
+            AccountId = 0;
         }
     }
 }

@@ -1,18 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Claims;
 using System.Threading.Tasks;
-using codeRR.Server.Api.Web.Overview.Queries;
-using codeRR.Server.App.Core.Incidents;
-using codeRR.Server.Infrastructure.Security;
+using Coderr.Server.Abstractions.Security;
+using Coderr.Server.Api.Web.Overview.Queries;
+using Coderr.Server.Domain.Core.Incidents;
 using DotNetCqs;
-using Griffin.Container;
 using Griffin.Data;
 
-namespace codeRR.Server.SqlServer.Web.Overview
+namespace Coderr.Server.SqlServer.Web.Overview
 {
-    [Component]
     internal class GetOverviewHandler : IQueryHandler<GetOverview, GetOverviewResult>
     {
         private readonly IAdoNetUnitOfWork _unitOfWork;
@@ -57,7 +54,7 @@ namespace codeRR.Server.SqlServer.Web.Overview
                 var appIds = new List<int>();
                 using (var cmd = _unitOfWork.CreateCommand())
                 {
-                    cmd.CommandText = "SELECT id FROM Applications";
+                    cmd.CommandText = "SELECT id FROM Applications WITH(READUNCOMMITTED)";
                     using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
@@ -77,7 +74,8 @@ namespace codeRR.Server.SqlServer.Web.Overview
                 ApplicationIds = string.Join(",", appIds);
             }
 
-           
+           if (!ApplicationIds.Any())
+               return new GetOverviewResult();
 
             if (query.NumberOfDays == 1)
                 return await GetTodaysOverviewAsync(query);
@@ -92,7 +90,7 @@ namespace codeRR.Server.SqlServer.Web.Overview
 FROM 
 (
 	select Incidents.ApplicationId , cast(Incidents.CreatedAtUtc as date) as Date, count(Incidents.Id) as Count
-	from Incidents
+	from Incidents WITH(READUNCOMMITTED)
 	where Incidents.CreatedAtUtc >= @minDate 
     AND Incidents.CreatedAtUtc <= GetUtcDate()
 	AND Incidents.ApplicationId in ({ApplicationIds})
@@ -134,6 +132,20 @@ right join applications on (applicationid=applications.id)
                 }
             }
 
+            using (var cmd = _unitOfWork.CreateCommand())
+            {
+                var from = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+                var to = DateTime.UtcNow;
+                cmd.CommandText =
+                    "SELECT sum(NumberOfReports) FROM IgnoredReports WHERE  date >= @from ANd date <= @to";
+                cmd.AddParameter("from", from);
+                cmd.AddParameter("to", to);
+                var value = cmd.ExecuteScalar();
+                if (value != DBNull.Value)
+                    result.MissedReports = (int) value;
+
+            }
+
             await GetStatSummary(query, result);
 
 
@@ -155,25 +167,29 @@ right join applications on (applicationid=applications.id)
         {
             using (var cmd = _unitOfWork.CreateDbCommand())
             {
-                cmd.CommandText = $@"select count(id) from incidents 
+                cmd.CommandText = $@"select count(id) 
+from incidents With(READUNCOMMITTED)
 where CreatedAtUtc >= @minDate
 AND CreatedAtUtc <= GetUtcDate()
 AND Incidents.ApplicationId IN ({ApplicationIds})
 AND Incidents.State <> {(int)IncidentState.Ignored} 
 AND Incidents.State <> {(int)IncidentState.Closed};
 
-select count(id) from errorreports 
+select count(id) 
+from errorreports WITH(READUNCOMMITTED) 
 where CreatedAtUtc >= @minDate
 AND ApplicationId IN ({ApplicationIds})
 
-select count(distinct emailaddress) from IncidentFeedback
+select count(distinct emailaddress) 
+from IncidentFeedback WITH(READUNCOMMITTED)
 where CreatedAtUtc >= @minDate
 AND CreatedAtUtc <= GetUtcDate()
 AND ApplicationId IN ({ApplicationIds})
 AND emailaddress is not null
 AND DATALENGTH(emailaddress) > 0;
 
-select count(*) from IncidentFeedback 
+select count(*) 
+from IncidentFeedback WITH(READUNCOMMITTED)
 where CreatedAtUtc >= @minDate
 AND CreatedAtUtc <= GetUtcDate()
 AND ApplicationId IN ({ApplicationIds})
@@ -227,13 +243,13 @@ AND DATALENGTH(Description) > 0;";
 FROM 
 (
 	select Incidents.ApplicationId , DATEPART(HOUR, Incidents.CreatedAtUtc) as Date, count(Incidents.Id) as Count
-	from Incidents
+	from Incidents WITH(READUNCOMMITTED)
 	where Incidents.CreatedAtUtc >= @minDate
     AND CreatedAtUtc <= GetUtcDate()
     AND Incidents.ApplicationId IN ({0})
 	group by Incidents.ApplicationId, DATEPART(HOUR, Incidents.CreatedAtUtc)
 ) cte
-right join applications on (applicationid=applications.id)", ApplicationIds);
+right join applications WITH(READUNCOMMITTED) on (applicationid=applications.id)", ApplicationIds);
 
 
                 cmd.AddParameter("minDate", startDate);

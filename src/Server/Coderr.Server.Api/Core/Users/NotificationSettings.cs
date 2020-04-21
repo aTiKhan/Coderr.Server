@@ -1,6 +1,6 @@
-﻿using codeRR.Server.Api.Core.Users.Queries;
+﻿using Coderr.Server.Api.Core.Users.Queries;
 
-namespace codeRR.Server.Api.Core.Users
+namespace Coderr.Server.Api.Core.Users
 {
     /// <summary>
     ///     Notification settings for <see cref="GetUserSettingsResult" />.
@@ -11,11 +11,6 @@ namespace codeRR.Server.Api.Core.Users
         ///     How to notify when a new incident is created (received an unique exception)
         /// </summary>
         public NotificationState NotifyOnNewIncidents { get; set; }
-
-        /// <summary>
-        ///     How to notify when a new report is created (receive an exception)
-        /// </summary>
-        public NotificationState NotifyOnNewReport { get; set; }
 
         /// <summary>
         ///     How to notify user when a peak is detected

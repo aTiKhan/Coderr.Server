@@ -4,14 +4,14 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
-using codeRR.Server.App.Modules.ReportSpikes;
-using Griffin.Container;
+using Coderr.Server.Abstractions.Boot;
+using Coderr.Server.Domain.Modules.ReportSpikes;
 using Griffin.Data;
 using Griffin.Data.Mapper;
 
-namespace codeRR.Server.SqlServer.Modules.ReportSpikes
+namespace Coderr.Server.SqlServer.Modules.ReportSpikes
 {
-    [Component]
+    [ContainerService]
     public class ReportSpikesRepository : IReportSpikeRepository
     {
         private readonly IAdoNetUnitOfWork _unitOfWork;
@@ -26,12 +26,12 @@ namespace codeRR.Server.SqlServer.Modules.ReportSpikes
             using (var cmd = (DbCommand) _unitOfWork.CreateCommand())
             {
                 cmd.CommandText = @"SELECT 
-          [Day]  = DATENAME(WEEKDAY, createdatutc),
-          Totals = cast (COUNT(*) as int)
-        FROM errorreports
-            WHERE applicationid=@appId
-        GROUP BY 
-          DATENAME(WEEKDAY, createdatutc)";
+                                        [Day]  = DATENAME(WEEKDAY, ReceivedAtUtc),
+                                        Totals = cast (COUNT(IncidentReports.Id) as int)
+                                    FROM IncidentReports
+                                    JOIN Incidents ON (Incidents.Id = IncidentReports.IncidentId)
+                                    WHERE applicationid = @appid
+                                    GROUP BY DATENAME(WEEKDAY, ReceivedAtUtc)";
                 cmd.AddParameter("appId", applicationId);
                 var numbers = new List<int>();
                 using (var reader = await cmd.ExecuteReaderAsync())
@@ -64,7 +64,11 @@ namespace codeRR.Server.SqlServer.Modules.ReportSpikes
             using (var cmd = _unitOfWork.CreateDbCommand())
             {
                 cmd.CommandText =
-                    @"SELECT count(*) FROM ErrorReports WHERE ApplicationId = @appId AND CreatedAtUtc >= @date";
+                    @"SELECT count(IncidentReports.Id) 
+                        FROM IncidentReports
+                        JOIN Incidents ON (Incidents.Id = IncidentId)
+                        WHERE ApplicationId = @appId 
+                            AND CreatedAtUtc >= @date";
                 cmd.AddParameter("date", DateTime.UtcNow.AddHours(-24));
                 cmd.AddParameter("appId", applicationId);
                 return (int) await cmd.ExecuteScalarAsync();

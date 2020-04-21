@@ -1,16 +1,18 @@
-﻿using System.Threading.Tasks;
-using codeRR.Server.Api.Core.Incidents.Commands;
-using codeRR.Server.Api.Core.Incidents.Events;
-using codeRR.Server.Infrastructure.Security;
+﻿using System;
+using System.Threading.Tasks;
+using Coderr.Server.Abstractions.Security;
+using Coderr.Server.Api.Core.Incidents.Commands;
+using Coderr.Server.Api.Core.Incidents.Events;
+using Coderr.Server.Domain.Core.Incidents;
+using Coderr.Server.Infrastructure.Security;
 using DotNetCqs;
-using Griffin.Container;
 
-namespace codeRR.Server.App.Core.Incidents.Commands
+
+namespace Coderr.Server.App.Core.Incidents.Commands
 {
     /// <summary>
     ///     Handler for <see cref="AssignIncident" />
     /// </summary>
-    [Component]
     public class AssignIncidentHandler : IMessageHandler<AssignIncident>
     {
         private readonly IIncidentRepository _repository;
@@ -23,14 +25,16 @@ namespace codeRR.Server.App.Core.Incidents.Commands
         public async Task HandleAsync(IMessageContext context, AssignIncident message)
         {
             var assignedBy = message.AssignedBy;
-            if (assignedBy != 0)
+            if (assignedBy == 0)
                 assignedBy = context.Principal.GetAccountId();
+            if (message.AssignedAtUtc == DateTime.MinValue)
+                message.AssignedAtUtc = null;
 
             var incident = await _repository.GetAsync(message.IncidentId);
-            incident.Assign(message.AssignedTo);
+            incident.Assign(message.AssignedTo, message.AssignedAtUtc);
             await _repository.UpdateAsync(incident);
 
-            var evt = new IncidentAssigned(message.IncidentId, assignedBy, message.AssignedTo);
+            var evt = new IncidentAssigned(message.IncidentId, assignedBy, message.AssignedTo, message.AssignedAtUtc ?? DateTime.UtcNow);
             await context.SendAsync(evt);
         }
     }

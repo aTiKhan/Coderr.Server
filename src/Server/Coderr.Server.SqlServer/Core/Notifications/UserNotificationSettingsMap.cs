@@ -1,8 +1,8 @@
 ﻿using System;
-using codeRR.Server.App.Core.Notifications;
+using Coderr.Server.Domain.Modules.UserNotifications;
 using Griffin.Data.Mapper;
 
-namespace codeRR.Server.SqlServer.Core.Notifications
+namespace Coderr.Server.SqlServer.Core.Notifications
 {
     internal class UserNotificationSettingsMap : CrudEntityMapper<UserNotificationSettings>
     {
@@ -15,9 +15,6 @@ namespace codeRR.Server.SqlServer.Core.Notifications
                 .ToColumnValue(StringToEnum)
                 .ToPropertyValue(EnumToString<NotificationState>);
             Property(x => x.ReopenedIncident)
-                .ToColumnValue(StringToEnum)
-                .ToPropertyValue(EnumToString<NotificationState>);
-            Property(x => x.NewReport)
                 .ToColumnValue(StringToEnum)
                 .ToPropertyValue(EnumToString<NotificationState>);
             Property(x => x.UserFeedback)

@@ -2,16 +2,15 @@
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Threading.Tasks;
-using codeRR.Server.Api.Core.Incidents;
-using codeRR.Server.App.Core.Incidents;
-using codeRR.Server.SqlServer.Tools;
-using Griffin.Container;
+using Coderr.Server.Abstractions.Boot;
+using Coderr.Server.Domain.Core.Incidents;
+using Coderr.Server.SqlServer.Tools;
 using Griffin.Data;
 using Griffin.Data.Mapper;
 
-namespace codeRR.Server.SqlServer.Core.Incidents
+namespace Coderr.Server.SqlServer.Core.Incidents
 {
-    [Component]
+    [ContainerService]
     public class IncidentRepository : IIncidentRepository
     {
         private readonly IAdoNetUnitOfWork _uow;
@@ -25,7 +24,7 @@ namespace codeRR.Server.SqlServer.Core.Incidents
 
         public async Task UpdateAsync(Incident incident)
         {
-            using (var cmd = (DbCommand) _uow.CreateCommand())
+            using (var cmd = (DbCommand)_uow.CreateCommand())
             {
                 cmd.CommandText =
                     @"UPDATE Incidents SET 
@@ -33,12 +32,14 @@ namespace codeRR.Server.SqlServer.Core.Incidents
                         UpdatedAtUtc = @UpdatedAtUtc,
                         Description = @Description,
                         Solution = @Solution,
+                        SolvedAtUtc = @solvedAt,
                         IsSolutionShared = @IsSolutionShared,
                         AssignedToId = @AssignedTo,
                         AssignedAtUtc = @AssignedAtUtc,
                         State = @state,
                         IgnoringReportsSinceUtc = @IgnoringReportsSinceUtc,
-                        IgnoringRequestedBy = @IgnoringRequestedBy
+                        IgnoringRequestedBy = @IgnoringRequestedBy,
+                        IgnoredUntilVersion = @IgnoredUntilVersion
                         WHERE Id = @id";
                 cmd.AddParameter("Id", incident.Id);
                 cmd.AddParameter("ApplicationId", incident.ApplicationId);
@@ -46,31 +47,84 @@ namespace codeRR.Server.SqlServer.Core.Incidents
                 cmd.AddParameter("Description", incident.Description);
                 cmd.AddParameter("State", (int)incident.State);
                 cmd.AddParameter("AssignedTo", incident.AssignedToId);
-                cmd.AddParameter("AssignedAtUtc", incident.AssignedAtUtc);
+                cmd.AddParameter("AssignedAtUtc", (object)incident.AssignedAtUtc ?? DBNull.Value);
+                cmd.AddParameter("solvedAt", incident.SolvedAtUtc.ToDbNullable());
                 cmd.AddParameter("IgnoringReportsSinceUtc", incident.IgnoringReportsSinceUtc.ToDbNullable());
                 cmd.AddParameter("IgnoringRequestedBy", incident.IgnoringRequestedBy);
                 cmd.AddParameter("Solution",
                     incident.Solution == null ? null : EntitySerializer.Serialize(incident.Solution));
                 cmd.AddParameter("IsSolutionShared", incident.IsSolutionShared);
+                cmd.AddParameter("IgnoredUntilVersion", incident.IgnoredUntilVersion);
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        public async Task MapCorrelationId(int incidentId, string correlationId)
+        {
+            var sql = @"declare @id int;
+                        select @id = Id FROM CorrelationIds WHERE Value = @value;
+                        if (@id is NULL)
+                        BEGIN
+                            INSERT INTO CorrelationIds(Value) VALUES(@value);
+                            set @id = scope_identity();
+                        END;
+                        BEGIN TRY
+                          INSERT INTO IncidentCorrelations (CorrelationId, IncidentId) VALUES (@id, @incidentId);  
+                        END TRY
+                        BEGIN CATCH
+                          IF ERROR_NUMBER() NOT IN (2601, 2627) 
+                            THROW;
+                        END CATCH";
+            using (var cmd = _uow.CreateDbCommand())
+            {
+                cmd.CommandText = sql;
+                cmd.AddParameter("value", correlationId);
+                cmd.AddParameter("incidentId", incidentId);
                 await cmd.ExecuteNonQueryAsync();
             }
         }
 
         public async Task<int> GetTotalCountForAppInfoAsync(int applicationId)
         {
-            using (var cmd = (DbCommand) _uow.CreateCommand())
+            using (var cmd = (DbCommand)_uow.CreateCommand())
             {
                 cmd.CommandText =
                     @"SELECT CAST(count(*) as int) FROM Incidents WHERE ApplicationId = @ApplicationId";
                 cmd.AddParameter("ApplicationId", applicationId);
-                var result = (int) await cmd.ExecuteScalarAsync();
+                var result = (int)await cmd.ExecuteScalarAsync();
                 return result;
+            }
+        }
+
+        public Task<IList<Incident>> GetManyAsync(IEnumerable<int> incidentIds)
+        {
+            if (incidentIds == null) throw new ArgumentNullException(nameof(incidentIds));
+            var ids = string.Join(",", incidentIds);
+            if (ids == "")
+                throw new ArgumentException("No incident IDs were specified.", nameof(incidentIds));
+
+            using (var cmd = (DbCommand)_uow.CreateCommand())
+            {
+                cmd.CommandText =
+                    $"SELECT * FROM Incidents WHERE Id IN ({ids})";
+                return cmd.ToListAsync(new IncidentMapper());
+            }
+        }
+
+        public async Task Delete(int incidentId)
+        {
+            using (var cmd = (DbCommand)_uow.CreateCommand())
+            {
+                cmd.CommandText =
+                    @"DELETE FROM Incidents WHERE Id = @id";
+                cmd.AddParameter("Id", incidentId);
+                await cmd.ExecuteNonQueryAsync();
             }
         }
 
         public Task<Incident> GetAsync(int id)
         {
-            using (var cmd = (DbCommand) _uow.CreateCommand())
+            using (var cmd = (DbCommand)_uow.CreateCommand())
             {
                 cmd.CommandText =
                     "SELECT TOP 1 * FROM Incidents WHERE Id = @id";
@@ -91,7 +145,7 @@ namespace codeRR.Server.SqlServer.Core.Incidents
                 return cmd.FirstOrDefault(new IncidentMapper());
             }
         }
-        
+
         public Incident Get(int id)
         {
             using (var cmd = _uow.CreateCommand())

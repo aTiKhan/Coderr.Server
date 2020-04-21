@@ -2,14 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using codeRR.Server.Api.Core.Incidents.Queries;
+using Coderr.Server.Api.Core.Incidents.Queries;
 using DotNetCqs;
-using Griffin.Container;
+using Coderr.Server.ReportAnalyzer.Abstractions;
 using Griffin.Data;
 
-namespace codeRR.Server.SqlServer.Core.Incidents.Queries
+namespace Coderr.Server.SqlServer.Core.Incidents.Queries
 {
-    [Component]
     internal class GetIncidentStatisticsHandler : IQueryHandler<GetIncidentStatistics, GetIncidentStatisticsResult>
     {
         private readonly IAdoNetUnitOfWork _unitOfWork;
@@ -40,11 +39,11 @@ namespace codeRR.Server.SqlServer.Core.Incidents.Queries
 
             using (var cmd = _unitOfWork.CreateDbCommand())
             {
-                cmd.CommandText = @"select cast(createdatutc as date) as Date, count(*) as Count
-from errorreports
+                cmd.CommandText = @"select cast(ReceivedAtUtc as date) as Date, count(*) as Count
+from IncidentReports
 where incidentid=@id
-AND CreatedAtUtc > @date
-group by cast(createdatutc as date)";
+AND ReceivedAtUtc > @date
+group by cast(ReceivedAtUtc as date)";
                 cmd.AddParameter("id", query.IncidentId);
                 cmd.AddParameter("date", DateTime.Today.AddDays(0 - query.NumberOfDays));
                 using (var reader = await cmd.ExecuteReaderAsync())
@@ -78,11 +77,11 @@ group by cast(createdatutc as date)";
 
             using (var cmd = _unitOfWork.CreateDbCommand())
             {
-                cmd.CommandText = @"SELECT DATEPART(HOUR, ErrorReports.CreatedAtUtc), cast(count(Id) as int)
-FROM ErrorReports
-WHERE ErrorReports.CreatedAtUtc > @minDate
+                cmd.CommandText = @"SELECT DATEPART(HOUR, IncidentReports.ReceivedAtUtc), cast(count(Id) as int)
+FROM IncidentReports
+WHERE IncidentReports.ReceivedAtUtc > @minDate
 AND IncidentId = @incidentId
-GROUP BY DATEPART(HOUR, ErrorReports.CreatedAtUtc);";
+GROUP BY DATEPART(HOUR, IncidentReports.ReceivedAtUtc);";
 
 
                 cmd.AddParameter("incidentId", query.IncidentId);

@@ -4,11 +4,12 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Threading;
-using codeRR.Server.ReportAnalyzer;
+using Coderr.Server.SqlServer.Migrations;
+using Coderr.Server.SqlServer.Schema;
 using Griffin.Data;
 using Griffin.Data.Mapper;
 
-namespace codeRR.Server.SqlServer.Tests.Helpers
+namespace Coderr.Server.SqlServer.Tests.Helpers
 {
     /// <summary>
     ///     Purpose of this class is to create and dispose the database.
@@ -67,9 +68,9 @@ namespace codeRR.Server.SqlServer.Tests.Helpers
             }
         }
 
-        public OurUnitOfWork CreateUnitOfWork()
+        public AdoNetUnitOfWork CreateUnitOfWork()
         {
-            return new OurUnitOfWork(OpenConnection(), true);
+            return new AdoNetUnitOfWork(OpenConnection(), true);
         }
 
         public void DeleteDatabase()
@@ -91,10 +92,8 @@ namespace codeRR.Server.SqlServer.Tests.Helpers
             _invoked = true;
             try
             {
-                var schemaManager = new SchemaManager(OpenConnection);
-                schemaManager.CreateInitialStructure();
-                if (UpdateToLatestVersion)
-                    schemaManager.UpgradeDatabaseSchema();
+                var schemaManager = new MigrationRunner(OpenConnection, "Coderr", typeof(CoderrMigrationPointer).Namespace);
+                schemaManager.Run();
             }
             catch (SqlException ex)
             {
@@ -109,8 +108,8 @@ namespace codeRR.Server.SqlServer.Tests.Helpers
 
         public void UpdateSchema(int version)
         {
-            var mgr = new SchemaManager(OpenConnection);
-            mgr.UpgradeDatabaseSchema(version);
+            var mgr = new MigrationRunner(OpenConnection, "Coderr", typeof(CoderrMigrationPointer).Namespace);
+            mgr.Run();
         }
 
         private IDbConnection OpenConnection(string connectionString)

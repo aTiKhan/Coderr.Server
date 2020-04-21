@@ -1,14 +1,22 @@
 ﻿using System;
-using codeRR.Server.ReportAnalyzer.Domain.Incidents;
-using codeRR.Server.ReportAnalyzer.Domain.Reports;
+using System.Threading.Tasks;
+using Coderr.Server.Domain.Core.ErrorReports;
+using Coderr.Server.ReportAnalyzer.Incidents;
 
-namespace codeRR.Server.ReportAnalyzer
+namespace Coderr.Server.ReportAnalyzer
 {
     /// <summary>
     ///     Repository (think CQRS write side in this case. yay!)
     /// </summary>
     public interface IAnalyticsRepository
     {
+        /// <summary>
+        /// Save an environment
+        /// </summary>
+        /// <param name="incidentId">incident that the report is for</param>
+        /// <param name="environmentName">Name as specified by the developer</param>
+        void SaveEnvironmentName(int incidentId, string environmentName);
+
         /// <summary>
         ///     Create a new incident
         /// </summary>
@@ -54,8 +62,16 @@ namespace codeRR.Server.ReportAnalyzer
         ///     Update incident
         /// </summary>
         /// <param name="incidentAnalysis">incident to persist</param>
-        /// <exception cref="ArgumentNullException">incentAnalysis</exception>
+        /// <exception cref="ArgumentNullException">incidentAnalysis</exception>
         void UpdateIncident(IncidentBeingAnalyzed incidentAnalysis);
 
+        /// <summary>
+        /// Number of reports received this month
+        /// </summary>
+        /// <returns></returns>
+        int GetMonthReportCount();
+
+        void AddMissedReport(DateTime date);
+        Task StoreReportStats(ReportMapping mapping);
     }
 }

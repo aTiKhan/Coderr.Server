@@ -1,7 +1,7 @@
 ﻿using System;
 using DotNetCqs;
 
-namespace codeRR.Server.Api.Core.Incidents.Queries
+namespace Coderr.Server.Api.Core.Incidents.Queries
 {
     /// <summary>
     ///     Find incidents
@@ -66,6 +66,11 @@ namespace codeRR.Server.Api.Core.Incidents.Queries
         ///     </para>
         /// </remarks>
         public string ContextCollectionPropertyValue { get; set; }
+
+        /// <summary>
+        /// Which environments we should search in.
+        /// </summary>
+        public int[] EnvironmentIds { get; set; }
 
         /// <summary>
         ///     Will be searched in incident.message and report.stacktrace.

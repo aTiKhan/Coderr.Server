@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Globalization;
-using codeRR.Server.Infrastructure.Configuration;
-using Coderr.Server.PluginApi.Config;
+using Coderr.Server.Abstractions.Config;
+using Coderr.Server.Infrastructure.Configuration;
 
-namespace codeRR.Server.App.Modules.Messaging.Commands
+namespace Coderr.Server.App.Modules.Messaging.Commands
 {
     /// <summary>
     ///     Used to configure the <c>SmtpClient</c> which is part of .NET
@@ -54,10 +54,10 @@ namespace codeRR.Server.App.Modules.Messaging.Commands
 
         void IConfigurationSection.Load(IDictionary<string, string> items)
         {
-            AccountName = items.GetString("AccountName");
+            AccountName = items.GetString("AccountName", "");
             AccountPassword = items.GetString("AccountPassword", "");
-            SmtpHost = items.GetString("SmtpHost");
-            PortNumber = items.GetInteger("PortNumber", 0);
+            SmtpHost = items.GetString("SmtpHost", "");
+            PortNumber = items.GetInteger("PortNumber", null);
             UseSsl = items.GetBoolean("UseSSL", false);
         }
     }
