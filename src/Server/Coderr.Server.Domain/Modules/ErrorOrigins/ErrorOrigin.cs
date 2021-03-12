@@ -8,6 +8,9 @@ namespace Coderr.Server.Domain.Modules.ErrorOrigins
     /// </summary>
     public class ErrorOrigin
     {
+        public const double EmptyLatitude = 91;
+        public const double EmptyLongitude = 181;
+
         /// <summary>
         ///     Creates a new instance of <see cref="ErrorOrigin" />.
         /// </summary>
@@ -16,11 +19,27 @@ namespace Coderr.Server.Domain.Modules.ErrorOrigins
         /// <param name="latitude">Latitude that the IP lookup service returned.</param>
         public ErrorOrigin(string ipAddress, double longitude, double latitude)
         {
-            IpAddress = ipAddress ?? throw new ArgumentNullException(nameof(ipAddress));
+            if (string.IsNullOrEmpty(ipAddress) && longitude <= 0 && latitude <= 0)
+                throw new ArgumentException("Either IPAddress or long/lat must be specified.");
+
+            IpAddress = ipAddress;
             Longitude = longitude;
             Latitude = latitude;
         }
 
+        public ErrorOrigin(string ipAddress)
+        {
+            IpAddress = ipAddress ?? throw new ArgumentNullException(nameof(ipAddress));
+            Longitude = EmptyLongitude;
+            Latitude = EmptyLatitude;
+        }
+
+        /// <summary>
+        ///     For the mapper.
+        /// </summary>
+        protected ErrorOrigin()
+        {
+        }
 
         /// <summary>
         ///     City reported by the lookup service.
@@ -34,9 +53,11 @@ namespace Coderr.Server.Domain.Modules.ErrorOrigins
 
 
         /// <summary>
-        ///     Name of countrt
+        ///     Name of country.
         /// </summary>
         public string CountryName { get; set; }
+
+        public int Id { get; set; }
 
         /// <summary>
         ///     IP address that we received the report from
@@ -45,10 +66,20 @@ namespace Coderr.Server.Domain.Modules.ErrorOrigins
         public string IpAddress { get; private set; }
 
         /// <summary>Longitude that the IP lookup service returned.</summary>
-        public double Latitude { get; private set; }
+        /// <remarks>
+        ///     91 if not specified
+        /// </remarks>
+        public double Latitude { get; set; }
 
-        /// <summary>Latitude that the IP lookup service returned.</summary>
-        public double Longitude { get; private set; }
+        /// <summary>
+        ///     Latitude that the IP lookup service returned.
+        /// </summary>
+        /// <remarks>
+        ///     <para>
+        ///         181 if not specified.
+        ///     </para>
+        /// </remarks>
+        public double Longitude { get; set; }
 
         /// <summary>
         ///     TODO: WTF IS THIS?!

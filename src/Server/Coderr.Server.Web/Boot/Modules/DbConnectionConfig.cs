@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Data;
+using System.Data.Common;
 using System.Data.SqlClient;
+using Coderr.Server.Abstractions;
 using Coderr.Server.Abstractions.Boot;
 using Coderr.Server.SqlServer;
 using Griffin.Data;
@@ -17,12 +19,12 @@ namespace Coderr.Server.Web.Boot.Modules
             _config = context.Configuration;
             context.Services.AddScoped(x => OpenConnection());
             context.Services.AddScoped(x => x.GetRequiredService<IDbConnection>().BeginTransaction());
-            context.Services.AddScoped<IAdoNetUnitOfWork>(x => new UnitOfWorkWithTransaction((SqlTransaction)x.GetRequiredService<IDbTransaction>()));
+            context.Services.AddScoped<IAdoNetUnitOfWork>(x => new UnitOfWorkWithTransaction((DbTransaction)x.GetRequiredService<IDbTransaction>()));
         }
 
         public IDbConnection OpenConnection()
         {
-            var db = _config.GetConnectionString("Db");
+            var db = HostConfig.Instance.ConnectionString;
             if (db == null)
             {
                 throw new InvalidOperationException("Missing the connection string 'Db'.");

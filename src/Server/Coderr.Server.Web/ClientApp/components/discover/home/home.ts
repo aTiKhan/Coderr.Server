@@ -1,13 +1,14 @@
-import { PubSubService } from "../../../services/PubSub";
-import * as MenuApi from "../../../services/menu/MenuApi";
-import { AppRoot } from "../../../services/AppRoot";
-import { GetOverview, GetOverviewResult } from "../../../dto/Web/Overview"
-import { GetApplicationOverview, GetApplicationOverviewResult, GetApplicationList, ApplicationListItem } from "../../../dto/Core/Applications"
-import { Component, Watch, Mixins } from "vue-property-decorator";
+import { PubSubService } from "@/services/PubSub";
+import * as MenuApi from "@/services/menu/MenuApi";
+import { AppRoot } from "@/services/AppRoot";
+import * as Mine from "@/dto/Common/Mine"
+import { GetOverview, GetOverviewResult } from "@/dto/Web/Overview"
+import { GetApplicationOverview, GetApplicationOverviewResult, GetApplicationList, ApplicationListItem } from "@/dto/Core/Applications"
+import { Component, Mixins } from "vue-property-decorator";
 import { AppAware } from "@/AppMixins";
 import Chartist from "chartist";
-import * as moment from "moment";
 import { FindIncidentsResultItem } from "@/dto/Core/Incidents";
+import * as helpers from "@/helpers";
 
 interface ISeries {
     name?: string;
@@ -33,6 +34,7 @@ export default class DiscoverHomeComponent extends Mixins(AppAware) {
     followers: number = 0;
 
     myIncidents: FindIncidentsResultItem[] = [];
+    myBestSuggestion: Mine.ListMySuggestedItem | null = null;
 
     comment: string = "";
     legend: ILegend[] = [];
@@ -52,7 +54,6 @@ export default class DiscoverHomeComponent extends Mixins(AppAware) {
                 return;
             }
             if (applicationId === 0) {
-                console.log('generic');
                 this.applicationId = 0;
                 this.firstApplicationId = 0;
                 this.loadGenericOverview();
@@ -89,7 +90,9 @@ export default class DiscoverHomeComponent extends Mixins(AppAware) {
 
     private loadApplication(applicationId: number) {
         var route = this.$route;
-        this.$router.push({ name: route.name, params: { applicationId: applicationId.toString() } });
+        if (this.applicationId !== applicationId) {
+            this.$router.push({ name: route.name, params: { applicationId: applicationId.toString() } });
+        }
 
         var q = new GetApplicationOverview();
         q.ApplicationId = applicationId;
@@ -148,6 +151,7 @@ export default class DiscoverHomeComponent extends Mixins(AppAware) {
             labels.push(value);
         }
 
+
         var options = {
             fullWidth: true,
             chartPadding: {
@@ -158,11 +162,12 @@ export default class DiscoverHomeComponent extends Mixins(AppAware) {
                 offset: 0
             },
             axisX: {
-                labelInterpolationFnc(value: any, index: number, labels: any) {
+                labelInterpolationFnc(value: any, index: number, labels: any): string {
                     if (index % 3 !== 0) {
-                        return '';
+                        return "";
                     }
-                    return moment(value).format('MMM D');
+
+                    return helpers.monthDay(value);
                 }
             }
         };
@@ -207,11 +212,11 @@ export default class DiscoverHomeComponent extends Mixins(AppAware) {
                 low: 0
             },
             axisX: {
-                labelInterpolationFnc(value: any, index: number, labels: any) {
+                labelInterpolationFnc(value: Date, index: number, labels: any) {
                     if (index % 3 !== 0) {
                         return '';
                     }
-                    return moment(value).format('MMM D');
+                    return helpers.monthDay(value);
                 }
             }
         };

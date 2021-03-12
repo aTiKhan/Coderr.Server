@@ -1,5 +1,6 @@
 @import "coderr-variables.scss";
-@import "mixins/_breakpoints.scss";
+@import "~bootstrap/scss/mixins/_breakpoints.scss";
+@import '~toastr/toastr.scss';
 @import "checkbox.scss";
 @import "radio.scss";
 
@@ -7,6 +8,10 @@
     h1, h2, h3, h4, a, span {
         color: $light;
     }
+}
+
+#mainMenu a.dropdown-item {
+    color: $dark;
 }
 
 .navbar-dark .navbar-nav .nav-link {
@@ -53,14 +58,14 @@
                 padding-top: 10px;
                 color: $gray-500;
 
-                table {
+                .list-table {
                     width: 100%;
 
                     tr {
                         th {
                             color: $gray-500;
-                            padding-right: 20px;
-                            min-width: 70%;
+                            /*padding-right: 20px;
+                            min-width: 70%;*/
                         }
 
                         td {

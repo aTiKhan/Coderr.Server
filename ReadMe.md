@@ -17,16 +17,23 @@ Coderr Community Server
 
 ## What’s Coderr?
 
-Coderr is an error handling tool developed specifically for .NET applications. Coderr provides an insight to all errors that are occurring and gives you control and a complete view of your applications’ status. 
+Coderr is an error management service developed specifically for .NET and JavaScript applications. Coderr provides an insight to all errors that are occurring and gives you control and a complete view of your applications’ status. 
 
 ## Why change?
 
-Too often, error detection and management involves relying on reports from users and random logfile scanning. The unknown amount of errors and weaknesses of the code creates uncertainty and lessens your control. With a systematic approach facilitated by a tool built for developers by developers, Coderr provides insight about the status of the applications. 
+Compared to log files and log analysis tools (like Splunk / Kibana), Coderr fouces exclusivly on errors (both exceptions and other types) where everything works out of the box. No need to customize dashboards, views or anything else.
+All errors are grouped out of the box and you can see how often they occurr, in which environment (like "production") and in which application versions.
 
+Once an error is corrected, all future reports for it will automatically be ignored unless the error surfaces in a newer application version.
+
+With Coderr, you can focus on building new features and spend minimal time correcting bugs.
 
 ## Getting started
 
-Once you have [downloaded and installed the server](https://github.com/coderrio/Coderr.Server/releases) you need to install and configure one of our nuget packages. You can read more about them [here](https://coderr.io/documentation/client/).
+1. [Download Coderr Server](https://github.com/coderrio/Coderr.Server/releases), use our [cloud service](https://app.coderr.io) (free for up to five users) or use our [Docker image]()
+2. Install one of our [nuget libraries](https://www.nuget.org/packages?q=coderr.client) (or [npm library](https://www.npmjs.com/package/coderr.client)).
+3. Follow the instructions in the package ReadMe (max three lines of code to get started).
+4. Try the code below.
 
 **Unhandled exceptions will automatically be reported by the client libraries.**
 

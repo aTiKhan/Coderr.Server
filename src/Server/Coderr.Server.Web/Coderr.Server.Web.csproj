@@ -2,11 +2,17 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp2.2</TargetFramework>
+    <AspNetCoreHostingModel>OutOfProcess</AspNetCoreHostingModel>
+    <AspNetCoreModuleName>AspNetCoreModule</AspNetCoreModuleName>
+    <Configurations>Debug;Release</Configurations>
+  </PropertyGroup>
+
+  <PropertyGroup>
     <TypeScriptCompileBlocked>true</TypeScriptCompileBlocked>
     <TypeScriptToolsVersion>Latest</TypeScriptToolsVersion>
     <IsPackable>false</IsPackable>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    <Version>2.3.3</Version>
+    <Version>2.3.6</Version>
     <UserSecretsId>18bfcacd-1b5d-435b-bc30-febb568a29b2</UserSecretsId>
   </PropertyGroup>
 
@@ -43,10 +49,6 @@
     </Content>
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Areas\Installation\Data\" />
-  </ItemGroup>
-
   <Target Name="DebugRunWebpack" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Debug' And !Exists('wwwroot\dist') ">
     <!-- Ensure Node.js is installed -->
     <Exec Command="node --version" ContinueOnError="true">
@@ -57,17 +59,19 @@
     <!-- In development, the dist files won't exist on the first run or when cloning to
          a different machine, so rebuild them if not already present. -->
     <Message Importance="high" Text="Performing first-run Webpack build..." />
-    <Exec Command="node node_modules/webpack/bin/webpack.js --config webpack.config.vendor.js" />
-    <Exec Command="node node_modules/webpack/bin/webpack.js" />
-    <Exec Command="node node_modules/gulp/bin/gulp.js" />
+    <Exec Command="node node_modules/webpack/bin/webpack.js --config webpack.config.dev.js --mode=development" />
   </Target>
 
   <Target Name="PublishRunWebpack" AfterTargets="ComputeFilesToPublish">
+    <!-- Exclude old script and font files from publish output-->
+    <ItemGroup>
+      <PrevScriptFiles Include="wwwroot\dist\**" />
+      <ResolvedFileToPublish Remove="@(PrevScriptFiles->'%(FullPath)')" />
+    </ItemGroup>
+
     <!-- As part of publishing, ensure the JS resources are freshly built in production mode -->
     <Exec Command="npm install" />
-    <Exec Command="node node_modules/webpack/bin/webpack.js --config webpack.config.vendor.js --env.prod" />
-    <Exec Command="node node_modules/webpack/bin/webpack.js --env.prod" />
-    <Exec Command="node node_modules/gulp/bin/gulp.js" />
+    <Exec Command="node node_modules/webpack/bin/webpack.js --config webpack.config.prod.js --mode=production" />
 
     <!-- Include the newly-built files in the publish output -->
     <ItemGroup>

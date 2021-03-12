@@ -19,15 +19,15 @@ export default class AnalyzeMenuComponent extends Mixins(AppAware) {
     incidentId: number | null = null;
     toggleMenu = false;
     applicationId: number | null = null;
-    initialIncidentId: number = 0;
+    loadedIncident: number = 0;
 
     created() {
         this.applicationId = AppRoot.Instance.currentApplicationId;
-        this.onApplicationChanged(x => this.applicationId = x);
+        this.onApplicationChanged(this.onApplication);
 
         if (this.$route.params.incidentId) {
             this.incidentId = parseInt(this.$route.params.incidentId, 10);
-            this.initialIncidentId = this.incidentId;
+            this.loadedIncident = this.incidentId;
             MyIncidents.Instance.switchIncident(this.incidentId);
         }
 
@@ -57,6 +57,15 @@ export default class AnalyzeMenuComponent extends Mixins(AppAware) {
 
     }
 
+    private onApplication(applicationId: number) {
+        this.applicationId = applicationId;
+        if (applicationId === 0) {
+            this.incidents = MyIncidents.Instance.myIncidents;
+        } else {
+            this.incidents = MyIncidents.Instance.myIncidents.filter(x => x.applicationId === applicationId);
+        }
+    }
+
     private onListChanged(args: any) {
         this.incidents = MyIncidents.Instance.myIncidents;
         if (!this.incidentId && this.incidents.length > 0) {
@@ -66,12 +75,13 @@ export default class AnalyzeMenuComponent extends Mixins(AppAware) {
     }
 
     private onIncidentSelected(incident: IMyIncident | null) {
+
         if (incident == null) {
             this.title = "(Select an incident)";
             this.incidentId = null;
-            this.$router.push({ name: "analyzeHome" });
         } else {
-            if (this.initialIncidentId !== incident.incidentId) {
+            var routeIncident = parseInt(this.$route.params.incidentId);
+            if (routeIncident !== incident.incidentId) {
                 this.$router.push({ name: "analyzeIncident", params: { incidentId: incident.incidentId.toString() } });
             }
             this.title = incident.shortTitle;

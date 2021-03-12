@@ -2,6 +2,7 @@ import { PubSubService } from "../../../services/PubSub";
 import * as MenuApi from "../../../services/menu/MenuApi";
 import { AppRoot, IMyApplication } from "../../../services/AppRoot";
 import { AppEvents, ApplicationChanged } from "@/services/applications/ApplicationService";
+import * as appContracts from "@/dto/Core/Applications"
 import { Component, Vue } from 'vue-property-decorator';
 import * as Router from "vue-router";
 
@@ -18,6 +19,7 @@ export default class NavMenuComponent extends Vue {
     private callbacks: NavigationCallback[] = [];
     private loaded = false;
     private allApps: IMyApplication[] = [];
+    private toggleMenu: boolean = false;
 
     childMenu: MenuApi.MenuItem[] = [];
 
@@ -67,8 +69,11 @@ export default class NavMenuComponent extends Vue {
                 this.missedReportsMessage = '';
             }
         });
+
+        // we need to do this so that the route is updated.
         PubSubService.Instance.subscribe(AppEvents.Selected, ctx => {
-            return;
+
+
             var msg = <ApplicationChanged>ctx.message.body;
             if (msg.applicationId === null || msg.applicationId === 0) {
 
@@ -77,11 +82,19 @@ export default class NavMenuComponent extends Vue {
                     return;
 
                 AppRoot.Instance.currentApplicationId = null;
-                this.updateCurrent(0);
+                //this.updateCurrent(0);
                 return;
             }
 
-            this.updateCurrent(msg.applicationId);
+            const params = this.$route.params;
+            if (!params.applicationId || params.applicationId.toString() === msg.applicationId.toString()) {
+                return;
+            }
+
+            params.applicationId = msg.applicationId.toString();
+            this.$router.replace({ name: this.$route.name, params: params });
+
+            //this.updateCurrent(msg.applicationId);
         });
         PubSubService.Instance.subscribe(AppEvents.Removed, ctx => {
             this.myApplications = this.myApplications.filter(x => x.id !== ctx.message.body);
@@ -103,6 +116,7 @@ export default class NavMenuComponent extends Vue {
     }
 
     changeApplication(applicationId: number | null) {
+        this.toggleMenu = false;
         if (applicationId === this.currentApplicationId) {
             return;
         }
@@ -111,6 +125,12 @@ export default class NavMenuComponent extends Vue {
         if (applicationId == null) {
             applicationId = 0;
         }
+
+        if (this.$route.params.hasOwnProperty('applicationId') && this.$route.path.indexOf('/analyze') !== 0) {
+            var newParams = Object.assign(this.$route.params, { 'applicationId': applicationId.toString() });
+            this.$router.push({ "name": this.$route.name, "params": newParams });
+        }
+
         AppRoot.Instance.applicationService.changeApplication(applicationId);
         return;
 
@@ -206,6 +226,7 @@ export default class NavMenuComponent extends Vue {
             }
             this.currentApplicationName = title;
             this.discoverLink = `/discover/${applicationId}`;
+
             //var msg = new MenuApi.ApplicationChanged();
             //msg.applicationId = applicationId;
         });

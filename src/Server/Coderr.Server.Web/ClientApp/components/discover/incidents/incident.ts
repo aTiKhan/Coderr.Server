@@ -1,27 +1,23 @@
-import { PubSubService } from "../../../services/PubSub";
-import { IHighlight, IncidentService } from "@/services/incidents/IncidentService";
-import { AppRoot } from '../../../services/AppRoot';
-import { ApplicationMember } from "../../../services/applications/ApplicationService";
-import { GetIncident, GetIncidentResult, GetIncidentStatistics, GetIncidentStatisticsResult, ReportDay, QuickFact } from "../../../dto/Core/Incidents";
-import Vue from "vue";
-import { Component } from "vue-property-decorator";
+import { IHighlight } from "@/services/incidents/IncidentService";
+import { AppRoot } from '@/services/AppRoot';
+import { ApplicationMember } from "@/services/applications/ApplicationService";
+import { GetIncidentResult, ReportDay, QuickFact } from "@/dto/Core/Incidents";
+import { Component, Vue } from "vue-property-decorator";
 import Chartist from "chartist";
-import * as moment from 'moment';
+import * as Reports from "../../../dto/Core/Reports";
 
-
+import { DateTime } from 'luxon';
 @Component
 export default class IncidentComponent extends Vue {
-    private static activeBtnTheme: string = 'btn-dark';
-
     incidentId: number;
     incident: GetIncidentResult = new GetIncidentResult;
     isIgnored: boolean = false;
     isClosed = false;
-
     highlights: IHighlight[] = [];
-
     team: ApplicationMember[] = [];
+
     created() {
+        this.incident.Tags = [];
         this.incidentId = parseInt(this.$route.params.incidentId, 10);
         AppRoot.Instance.incidentService.get(this.incidentId)
             .then(result => {
@@ -29,16 +25,22 @@ export default class IncidentComponent extends Vue {
                 this.isIgnored = result.IsIgnored;
                 this.isClosed = result.IsSolved;
                 result.Facts = result.Facts.filter(v => v.Value !== '0');
-                
+
                 if (result.AssignedToId > 0) {
                     var fact = new QuickFact();
-                    fact.Description = 'Assigned at ' + moment(result.AssignedAtUtc);
+                    console.log(result.AssignedAtUtc, typeof result.AssignedAtUtc);
+                    fact.Description = 'Assigned at ' + this.$options.filters.niceTime(result.AssignedAtUtc);
                     fact.Title = "Assigned to";
                     fact.Value = result.AssignedTo;
                     result.Facts.push(fact);
                 }
-                
-                this.displayChart(result.DayStatistics);
+
+                this.setHighlights(result);
+
+                this.$nextTick(() => {
+                    this.displayChart(result.DayStatistics);
+                });
+
                 AppRoot.Instance.applicationService.getTeam(result.ApplicationId)
                     .then(x => {
                         this.team = x;
@@ -106,17 +108,68 @@ export default class IncidentComponent extends Vue {
                 }
             });
     }
-
+    
     deleteIncident() {
         AppRoot.Instance.incidentService.delete(this.incidentId, "yes");
-        AppRoot.notify("Incident have been removed", 'fa-info', 'success');
+        AppRoot.notify("Incident have been scheduled for deletion.", 'fa-info', 'info');
         this.$router.push({ name: 'suggest'});
+    }
+
+    private setHighlights(incident: GetIncidentResult) {
+        this.highlights.length = 0;
+        incident.HighlightedContextData.forEach(x => {
+            this.highlights.push({ name: x.Name, value: x.Value[0] });
+        });
+
+        var q = new Reports.GetReportList();
+        q.IncidentId = incident.Id;
+        q.PageNumber = 1;
+        q.PageSize = 1;
+        AppRoot.Instance.apiClient.query<Reports.GetReportListResult>(q)
+            .then(list => {
+                if (list.Items.length === 0) {
+                    return;
+                }
+
+                var q = new Reports.GetReport();
+                q.ReportId = list.Items[0].Id;
+                AppRoot.Instance.apiClient.query<Reports.GetReportResult>(q)
+                    .then(report => {
+                        let collectionsToGet: string[] = [];
+                        report.ContextCollections.forEach(x => {
+                            if (x.Name !== "CoderrData") {
+                                return;
+                            }
+
+                            x.Properties.forEach(y => {
+                                if (y.Key === "HighlightCollections") {
+                                    collectionsToGet = y.Value.split(",");
+                                }
+                                //if (y.Key === "HighlightProperties") {
+                                //    collectionsToGet = y.Value.split(",");
+                                //}
+
+                            });
+                        });
+                        report.ContextCollections.forEach(x => {
+                            var match = collectionsToGet.find(y => y === x.Name);
+                            if (match) {
+                                x.Properties.forEach(z => {
+                                    this.highlights.push({ name: `${x.Name}.${z.Key}`, value: z.Value });
+                                });
+                            }
+                        });
+
+                    });
+
+            });
     }
 
     private displayChart(days: ReportDay[]) {
         var labels: Date[] = [];
         var series: number[] = [];
         for (var i = 0; i < days.length; i++) {
+
             var value = new Date(days[i].Date);
             labels.push(value);
             series.push(days[i].Count);
@@ -128,11 +181,11 @@ export default class IncidentComponent extends Vue {
                 offset: 0
             },
             axisX: {
-                labelInterpolationFnc(value: any, index: number, labels: any) {
+                labelInterpolationFnc(value: Date, index: number, labels: any) {
                     if (index % 3 !== 0) {
                         return '';
                     }
-                    return moment(value).format('MMM D');
+                    return DateTime.fromJSDate(value).toFormat('LLL dd');
                 }
             }
         };
